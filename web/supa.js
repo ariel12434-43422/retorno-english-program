@@ -23,38 +23,40 @@
   const sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true } });
   let session = null, isAdmin = false, staffId = null, member = false;
 
-  /* ---------- sign-in ---------- */
+  /* ---------- sign-in: username + password; the manager creates the accounts ---------- */
+  const DOMAIN = 'staff.retorno.app';
+  const toEmail = u => { u = String(u || '').trim().toLowerCase(); return u.includes('@') ? u : u + '@' + DOMAIN; };
+  const userName = e => String(e || '').toLowerCase().replace('@' + DOMAIN, '');
   function loginForm(mode, msg) {
-    const isUp = mode === 'up', isReset = mode === 'reset', isNew = mode === 'newpw';
-    card(`<h1>${isNew ? T('בחירת סיסמה חדשה', 'Choose a new password') : isUp ? T('הרשמה', 'Sign up') : isReset ? T('איפוס סיסמה', 'Reset password') : T('כניסה למערכת', 'Sign in')}</h1>
+    const isNew = mode === 'newpw', isHelp = mode === 'help';
+    card(`<h1>${isNew ? T('בחירת סיסמה חדשה', 'Choose a new password') : isHelp ? T('שכחתי סיסמה', 'Forgot password') : T('כניסה למערכת', 'Sign in')}</h1>
       <p class="hint">${T('תוכנית דוברי אנגלית · רטורנו', 'English-speaking program · Retorno')}</p>
+      ${isHelp ? `<p>${T('שם המשתמש והסיסמה ניתנים על ידי המנהל. אם שכחת אותם, פנה/י למנהל והוא יקבע לך סיסמה חדשה.', 'Your username and password come from the manager. If you forgot them, ask the manager to set a new password for you.')}</p>
+        <button type="button" class="btn primary" data-m="in">${T('חזרה לכניסה', 'Back to sign in')}</button>` : `
       <form class="form" id="authForm" novalidate>
-        ${isNew ? '' : `<div class="f"><label for="au_e">${T('מייל', 'Email')}</label><input id="au_e" type="email" dir="ltr" autocomplete="username" required></div>`}
-        ${isReset ? '' : `<div class="f"><label for="au_p">${T('סיסמה', 'Password')}</label><input id="au_p" type="password" dir="ltr" autocomplete="${isUp || isNew ? 'new-password' : 'current-password'}" required></div>`}
-        ${isUp || isNew ? `<p class="hint">${T('לפחות 8 תווים.', 'At least 8 characters.')}</p>` : ''}
+        ${isNew ? '' : `<div class="f"><label for="au_e">${T('שם משתמש', 'Username')}</label><input id="au_e" type="text" dir="ltr" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" required></div>`}
+        <div class="f"><label for="au_p">${T('סיסמה', 'Password')}</label><input id="au_p" type="password" dir="ltr" autocomplete="${isNew ? 'new-password' : 'current-password'}" required></div>
         <p class="err" id="au_err" role="alert">${esc(msg || '')}</p>
-        <button class="btn primary" type="submit">${isNew ? T('שמירה', 'Save') : isUp ? T('הרשמה', 'Sign up') : isReset ? T('שליחת קישור איפוס', 'Send reset link') : T('כניסה', 'Sign in')}</button>
-        ${isNew ? '' : `<div class="toolbar">${mode !== 'in' ? `<button type="button" class="btn sm ghost" data-m="in">${T('יש לי חשבון – כניסה', 'I have an account – sign in')}</button>` : ''}${mode !== 'up' ? `<button type="button" class="btn sm ghost" data-m="up">${T('חשבון חדש – הרשמה', 'New account – sign up')}</button>` : ''}${mode !== 'reset' ? `<button type="button" class="btn sm ghost" data-m="reset">${T('שכחתי סיסמה', 'Forgot password')}</button>` : ''}</div>`}
-      </form>`);
+        <button class="btn primary" type="submit">${isNew ? T('שמירה', 'Save') : T('כניסה', 'Sign in')}</button>
+        ${isNew ? '' : `<div class="toolbar"><button type="button" class="btn sm ghost" data-m="help">${T('שכחתי סיסמה', 'Forgot password')}</button></div>`}
+      </form>`}`);
     app().querySelectorAll('[data-m]').forEach(b => b.onclick = () => loginForm(b.dataset.m));
-    document.getElementById('authForm').onsubmit = async e => {
+    const form = document.getElementById('authForm'); if (!form) return;
+    form.onsubmit = async e => {
       e.preventDefault();
       const err = document.getElementById('au_err'); err.textContent = '';
-      const email = (document.getElementById('au_e')?.value || '').trim().toLowerCase();
+      const name = (document.getElementById('au_e')?.value || '').trim();
       const pw = document.getElementById('au_p')?.value || '';
-      if (!isNew && !/^\S+@\S+\.\S+$/.test(email)) { err.textContent = T('המייל לא תקין.', 'That email is not valid.'); return; }
-      if ((isUp || isNew) && pw.length < 8) { err.textContent = T('הסיסמה צריכה להכיל לפחות 8 תווים.', 'The password needs at least 8 characters.'); return; }
+      if (!isNew && !name) { err.textContent = T('כתבו שם משתמש.', 'Enter your username.'); return; }
+      if (!pw) { err.textContent = T('כתבו סיסמה.', 'Enter your password.'); return; }
+      if (isNew && pw.length < 6) { err.textContent = T('הסיסמה צריכה להכיל לפחות 6 תווים.', 'The password needs at least 6 characters.'); return; }
       const btn = e.submitter; if (btn) btn.disabled = true;
       try {
         if (isNew) { const { error } = await sb.auth.updateUser({ password: pw }); if (error) throw error; location.hash = ''; location.reload(); return; }
-        if (isReset) { const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname }); if (error) throw error; loginForm('in', T('נשלח אליך מייל עם קישור לאיפוס הסיסמה.', 'We emailed you a link to reset the password.')); return; }
-        if (isUp) {
-          const { data, error } = await sb.auth.signUp({ email, password: pw, options: { emailRedirectTo: location.origin + location.pathname } }); if (error) throw error;
-          if (!data.session) { loginForm('in', T('נשלח אליך מייל לאישור החשבון. אחרי האישור אפשר להיכנס.', 'We sent you an email to confirm the account. After confirming, sign in.')); return; }
-        } else { const { error } = await sb.auth.signInWithPassword({ email, password: pw }); if (error) throw error; }
+        const { error } = await sb.auth.signInWithPassword({ email: toEmail(name), password: pw }); if (error) throw error;
       } catch (ex) {
         const m = String(ex.message || ex);
-        err.textContent = /Invalid login/i.test(m) ? T('המייל או הסיסמה שגויים.', 'Wrong email or password.') : /confirm/i.test(m) ? T('צריך קודם לאשר את המייל (בדקו את תיבת הדואר).', 'Confirm your email first (check your inbox).') : /registered/i.test(m) ? T('כבר קיים חשבון עם המייל הזה. נסו להיכנס.', 'An account with this email already exists. Try signing in.') : m;
+        err.textContent = /Invalid login|invalid_credentials/i.test(m) ? T('שם המשתמש או הסיסמה שגויים.', 'Wrong username or password.') : m;
       } finally { if (btn) btn.disabled = false; }
     };
   }
@@ -148,15 +150,19 @@
   /* ---------- what the app reads about this account ---------- */
   window.RETORNO_SUPA = {
     get email() { return session && session.user.email; },
+    get username() { return session && userName(session.user.email); },
     get member() { return member; }, get admin() { return isAdmin; }, get staffId() { return staffId; },
     signOut: () => sb.auth.signOut(),
-    async setMember(email, sid, asManager) {
-      email = String(email || '').trim().toLowerCase(); if (!email) return;
-      const r = await sb.from('app_members').upsert({ email, staff_id: sid }); if (r.error) throw r.error;
-      if (asManager) { const r2 = await sb.from('app_admins').upsert({ email }); if (r2.error) throw r2.error; }
-      else await sb.from('app_admins').delete().eq('email', email).neq('email', (session.user.email || '').toLowerCase());
+    userName,
+    // manager only: create or update a staff member's username / password
+    async setAccount(staffId, username, password, asManager) {
+      const { data, error } = await sb.functions.invoke('staff-accounts', { body: { action: 'set', staff_id: staffId, username, password: password || undefined, manager: !!asManager } });
+      if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch (e) {} throw new Error(m); }
+      if (data && data.error) throw new Error(data.error);
+      return data;
     },
-    async removeMember(email) { email = String(email || '').trim().toLowerCase(); if (!email || email === (session.user.email || '').toLowerCase()) return; await sb.from('app_members').delete().eq('email', email); await sb.from('app_admins').delete().eq('email', email); },
+    async removeAccount(staffId) { await sb.functions.invoke('staff-accounts', { body: { action: 'remove', staff_id: staffId } }); },
+    async changeMyPassword(pw) { const { error } = await sb.auth.updateUser({ password: pw }); if (error) throw error; },
     async importDocs(map, onProgress) {
       const rows = Object.entries(map).filter(([p]) => !p.startsWith('links/') && p !== 'mgr/data/secure/cred').map(([path, body]) => ({ path, collection: colOf(path), body }));
       for (let i = 0; i < rows.length; i += 100) { const { error } = await sb.from('docs').upsert(rows.slice(i, i + 100)); if (error) throw error; onProgress && onProgress(Math.min(i + 100, rows.length), rows.length); }
