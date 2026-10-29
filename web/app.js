@@ -263,7 +263,7 @@ const isMine=x=>x.staff===me()||(S.role==='counselor'&&x.byShift&&[me(),''].incl
 const whoLeads=x=>x.staff?staffName(x.staff):x.leader?esc(nm(x.leader)):x.byShift?(staffName(onShift(shiftAt(x.date,x.time)))||_('מדריך במשמרת','Counselor on shift')):'';
 const canSeeNote=n=>n.kind==='therapy'?P().clinical:P().daily;
 const reqAmount=r=>r.kind==='trip'?Math.round(r.km*D.settings.kmRate):r.amount;
-const myPatients=()=>S.role==='therapist'?activeP().filter(p=>p.therapist===me()):activeP();
+const myPatients=()=>activeP();
 
 /* ---------- cost engine ----------
  Staff costs come from documented work only. A scheduled item carries a forecast cost at the current rate;
@@ -489,14 +489,14 @@ function vPatients(){
  if(S.pid)return vProfile(pat(S.pid));
  const arch=S.arch&&S.role==='manager';
  let ps=D.patients.filter(p=>!!p.archived===arch);
- if(S.role==='therapist')ps=ps.filter(p=>p.therapist===me());
+
  const fin=S.role==='manager';
  return`<div class="page-h"><div><p class="eyebrow">${ps.length} ${arch?_('בארכיון','archived'):_('פעילים','active')}</p><h1>${_('מטופלים','Patients')}</h1></div>
  <div class="acts">${S.role==='manager'?`<button class="btn primary" data-a="addPatient">+ ${_('מטופל','Patient')}</button>`:''}${S.role==='manager'?`<button class="btn ${arch?'':'primary'}" data-a="arch" data-v="0">${_('פעילים','Active')}</button><button class="btn ${arch?'primary':''}" data-a="arch" data-v="1">${_('ארכיון','Archive')}</button>`:''}</div></div>
- ${S.role==='therapist'?`<p class="hint">${_('מוצגים המטופלים שבאחריותך.','Showing patients in your care.')}</p>`:''}
+ 
  <div class="pgrid">${ps.map(p=>{const s=attStats(p.id);const b=bal(p);const inc=D.incidents.filter(i=>i.pid===p.id&&diff(i.date,TD)<=7).length;return`<button class="pcard" data-a="openP" data-v="${p.id}">
   <div class="top-r"><div><div class="pname">${esc(p.name)}</div><div class="dayn">${_('יום','Day')} ${dayN(p)} · ${esc(p.country)}</div></div>${stagePill(p.stage)}</div>
-  <dl class="kv"><dt>${_('מדריך','Counselor')}</dt><dd>${staffName(p.counselor)}</dd><dt>${_('מטפל/ת','Therapist')}</dt><dd>${staffName(p.therapist)}</dd>${fin?`<dt>${_('יתרה','Balance')}</dt><dd class="num ${b<0?'neg':''}">${money(b)}</dd>`:''}</dl>
+  <dl class="kv">${fin?`<dt>${_('יתרה','Balance')}</dt><dd class="num ${b<0?'neg':''}">${money(b)}</dd>`:''}</dl>
   ${!p.archived&&s.rate!=null?`<div><div class="bar"><i style="width:${s.rate}%"></i></div><div class="hint" style="margin-top:4px">${_('נוכחות','Attendance')} ${s.rate}%${s.l?` · ${s.l} ${_('איחורים','late')}`:''}${s.a?` · ${s.a} ${_('היעדרויות','absent')}`:''}${inc&&P().incidents?` · <span class="neg">${inc} ${_('חריגות השבוע','incidents this week')}</span>`:''}</div></div>`:''}
   ${p.archived?`<div class="hint">${_('שוחרר/ה ב־','Discharged ')}${fmtDate(p.discharged,{day:'numeric',month:'short',year:'numeric'})}</div>`:''}</button>`}).join('')||empty(_('אין מטופלים להצגה.','No patients to show.'))}</div>`;
 }
@@ -527,7 +527,7 @@ function vProfile(p){
   const s=attStats(p.id);
   body=`<div class="grid2 even"><section class="card"><div class="card-h"><h2>${_('היסטוריית שלבים','Stage history')}</h2>${mgr&&!p.archived?`<button class="btn sm" data-a="stage" data-v="${p.id}">${_('שינוי שלב','Change stage')}</button>`:''}</div>
    <div class="timeline">${p.history.map(h=>`<div class="tl"><div>${stagePill(h.stage)} <span class="muted">${fmtDate(h.date,{day:'numeric',month:'short',year:'numeric'})}</span></div>${h.note?`<div class="hint" dir="auto">${esc(h.note)}</div>`:''}<div class="hint">${_('עודכן ע״י','By')} ${staffName(h.by)}</div></div>`).join('')}</div></section>
-   <div class="stack"><section class="card"><div class="card-h"><h2>${_('צוות מטפל','Care team')}</h2></div><dl class="kv"><dt>${_('מדריך','Counselor')}</dt><dd>${staffName(p.counselor)}</dd><dt>${_('מטפל/ת','Therapist')}</dt><dd>${staffName(p.therapist)}</dd><dt>${_('תאריך הגעה','Arrival')}</dt><dd>${fmtDate(p.arrival,{day:'numeric',month:'long',year:'numeric'})}</dd><dt>${_('מדינה','Country')}</dt><dd>${esc(p.country)}</dd></dl></section>
+   <div class="stack"><section class="card"><div class="card-h"><h2>${_('פרטים','Details')}</h2></div><dl class="kv"><dt>${_('תאריך הגעה','Arrival')}</dt><dd>${fmtDate(p.arrival,{day:'numeric',month:'long',year:'numeric'})}</dd><dt>${_('מדינה','Country')}</dt><dd>${esc(p.country)}</dd></dl></section>
    <section class="card"><div class="card-h"><h2>${_('נוכחות – 14 יום','Attendance – 14 days')}</h2><span class="pill ${s.rate>=90?'ok':s.rate>=75?'warn':'bad'}">${s.rate??'—'}%</span></div><dl class="kv"><dt>${_('נוכח','Present')}</dt><dd class="num">${s.p}</dd><dt>${_('איחר','Late')}</dt><dd class="num">${s.l}</dd><dt>${_('נעדר','Absent')}</dt><dd class="num">${s.a}</dd></dl></section></div></div>`;
  }else if(S.ptab==='timeline'){
   const{ev,hidden}=timeline(p);
@@ -562,7 +562,7 @@ function vProfile(p){
  <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab ${S.ptab===t[0]?'on':''}" role="tab" aria-selected="${S.ptab===t[0]}" data-a="ptab" data-v="${t[0]}">${t[1]}</button>`).join('')}</div>${body}`;
 }
 const methodLbl=m=>({cash:_('מזומן','Cash'),bank:_('העברה בנקאית','Bank transfer'),card:_('אשראי','Credit'),none:_('פנימי – ללא תנועת כסף','Internal – no money moved')}[m]||(m&&m.startsWith('staff:')?`${_('שולם ע״י','Paid by')} ${staffName(m.slice(6))}`:''));
-const kindLbl=x=>({in:_('הכנסה','Money in'),exp:_('הוצאה','Expense'),refund:_('הוחזר למטופל','Returned to patient'),cig:_('סיגריות','Cigarettes'),transfer:_('העברה בין קופות','Transfer between funds'),staffpay:_('תשלום לצוות','Staff payment')}[x.kind]||x.kind);
+const kindLbl=x=>({in:_('הכנסה','Money in'),exp:_('הוצאה','Expense'),refund:_('הוחזר למטופל','Returned to patient'),cig:_('סיגריות','Cigarettes'),transfer:_('העברה בין קופות','Transfer between funds'),rebal:_('חלוקה מזומן / אשראי','Cash / credit split'),staffpay:_('תשלום לצוות','Staff payment')}[x.kind]||x.kind);
 function txTable(rows,focus){
  return`<div class="tw"><table><thead><tr><th>${_('תאריך','Date')}</th><th>${_('סוג','Type')}</th><th>${_('פירוט','Details')}</th><th>${_('איך שולם','How paid')}</th><th>${_('על חשבון','Charged to')}</th><th class="n">${focus?_('השפעה','Effect'):_('סכום','Amount')}</th></tr></thead><tbody>
  ${rows.map(x=>{const mt=m=>focus.endsWith(':')?m.p.startsWith(focus):m.p===focus;const mine=focus?r2(x.moves.filter(mt).reduce((s,m)=>s+m.d,0)):x.amount;
@@ -615,10 +615,10 @@ function finPersonal(){
  const rows=D.tx.filter(x=>okTx(x)&&x.moves.some(m=>m.p.startsWith('patient:'))&&x.kind!=='transfer').sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20);
  const tot=act.reduce((s,p)=>s+bal(p),0);
  return`<p class="hint">${_('כסף שהמטופל או המשפחה הפקידו להוצאות אישיות בלבד. תשלום על הטיפול ועלויות הצוות לא נכנסים ולא יורדים מכאן.','Money the patient or family deposited for personal spending only. Treatment payments and staff costs never go in or come out of here.')}</p>
- ${S.role==='manager'?quickActions([['inPatient','','users',_('הפקדה במזומן','Cash deposit'),_('נכנס לקופת המזומן של המטופל','Goes into the patient’s cash')],['inBank','','chart',_('הפקדה באשראי / העברה','Credit / transfer deposit'),_('נכנס לקופת האשראי של המטופל','Goes into the patient’s credit')],['purchase','','wallet',_('קנייה אישית','Personal purchase'),_('בוחרים אם יורד ממזומן או מאשראי','Choose cash or credit')],['cigPick','','flag',_('סיגריות','Cigarettes'),`${cigN()} ${_('חפיסות פתוחות מול רטורנו','packs open with Retorno')}`]]):`<div class="toolbar"><button class="btn primary" data-a="reportExp">${_('דיווח הוצאה','Report an expense')}</button><span class="hint">${_('היתרות לעיון בלבד. המנהל רושם הפקדות ומסווג הוצאות.','Balances are read-only. The manager records deposits and classifies expenses.')}</span></div>`}
+ ${S.role==='manager'?quickActions([['inPatient','','users',_('הפקדה במזומן','Cash deposit'),_('נכנס לקופת המזומן של המטופל','Goes into the patient’s cash')],['inBank','','chart',_('הפקדה באשראי / העברה','Credit / transfer deposit'),_('נכנס לקופת האשראי של המטופל','Goes into the patient’s credit')],['purchase','','wallet',_('קנייה אישית','Personal purchase'),_('בוחרים אם יורד ממזומן או מאשראי','Choose cash or credit')],['splitBal','','wallet',_('חלוקה מזומן / אשראי','Cash / credit split'),_('כמה מהיתרה במזומן וכמה באשראי','How much is cash and how much credit')],['cigPick','','flag',_('סיגריות','Cigarettes'),`${cigN()} ${_('חפיסות פתוחות מול רטורנו','packs open with Retorno')}`]]):`<div class="toolbar"><button class="btn primary" data-a="reportExp">${_('דיווח הוצאה','Report an expense')}</button><span class="hint">${_('היתרות לעיון בלבד. המנהל רושם הפקדות ומסווג הוצאות.','Balances are read-only. The manager records deposits and classifies expenses.')}</span></div>`}
  ${cigN()>=10?`<div class="banner"><b>${_('תזכורת','Reminder')}:</b> ${cigN()} ${_('חפיסות לא הותחשבנו מול רטורנו. כל חפיסה נרשמת פעם אחת בלבד.','packs not yet settled with Retorno. Each pack is counted once.')} ${S.role==='manager'?`<button class="btn sm primary" data-a="settle">${_('סימון כהותחשבן','Mark as settled')}</button>`:''}</div>`:''}
  <section class="card"><div class="card-h"><h2>${_('יתרות אישיות','Personal balances')}</h2><span class="chip">${money(tot)}</span></div><div class="tw"><table><thead><tr><th>${_('מטופל','Patient')}</th><th class="n">${_('הופקד','Deposited')}</th><th class="n">${_('הוצא','Spent')}</th><th class="n">${_('מזומן','Cash')}</th><th class="n">${_('אשראי','Credit')}</th><th class="n">${_('חפיסות פתוחות','Open packs')}</th><th class="n">${_('יתרה','Balance')}</th></tr></thead><tbody>
- ${act.map(p=>{const k=PK(p.id);let inn=0,out=0;D.tx.forEach(x=>{if(x.kind==='transfer'||!okTx(x))return;x.moves.forEach(m=>{if(m.p===k){if(m.d>0)inn+=m.d;else out-=m.d}})});const o=pool(k);
+ ${act.map(p=>{const k=PK(p.id);let inn=0,out=0;D.tx.forEach(x=>{if(x.kind==='transfer'||x.kind==='rebal'||!okTx(x))return;x.moves.forEach(m=>{if(m.p===k){if(m.d>0)inn+=m.d;else out-=m.d}})});const o=pool(k);
   return`<tr class="click" data-a="openAcc" data-v="${p.id}"><td><b>${esc(p.name)}</b></td><td class="n">${money(inn)}</td><td class="n">${money(out)}</td><td class="n ${o.cash<0?'neg':''}">${money(o.cash)}</td><td class="n ${o.bank<0?'neg':''}">${money(o.bank)}</td><td class="n">${cigN(p.id)||'—'}</td><td class="n ${o.t<0?'neg':''}"><b>${money(o.t)}</b></td></tr>`}).join('')}</tbody></table></div></section>
  <section class="card"><div class="card-h"><h2>${_('תנועות אחרונות בקופות האישיות','Recent personal-fund entries')}</h2></div>${txTable(rows,'patient:')}</section>`;
 }
@@ -1229,7 +1229,7 @@ function expenseFlow(pre){
   if(!need(a>0&&st.desc,_('הזינו סכום ופירוט','Enter amount and details')))return'stay';
   const rows=st.rows.filter(r=>r.to||+r.amount);
   if(!need(rows.length&&rows.every(r=>r.to&&+r.amount>0),_('בכל שורה צריך לבחור על חשבון מי ולהזין סכום','Each line needs who bears it and an amount')))return'stay';
-  const keys=rows.map(r=>r.to);if(!need(new Set(keys).size===keys.length,_('אותו גורם מופיע פעמיים. אחדו את השורות.','The same party appears twice. Merge the lines.')))return'stay';
+  const keys=rows.map(r=>r.to+'|'+(r.to.startsWith('patient:')?(r.from||defFrom()):''));if(!need(new Set(keys).size===keys.length,_('אותו גורם מופיע פעמיים עם אותו אמצעי תשלום. אחדו את השורות.','The same party appears twice with the same payment type. Merge the lines.')))return'stay';
   const sum=r2(rows.reduce((s,r)=>s+(+r.amount),0));
   if(!need(Math.abs(sum-a)<.005,`${_('סכום החלקים','Parts total')} ${money(sum)} ${_('לא שווה לסכום ההוצאה','does not equal the expense')} ${money(a)}`))return'stay';
   preview({...st,rows});return'stay';
@@ -1258,7 +1258,7 @@ function preview(st){
  // which money actually leaves: each patient line uses its own cash / credit choice, the rest follows how it was paid
  let cashD=0,bankD=0;st.rows.forEach(r=>{const md=r.to.startsWith('patient:')?(r.from||'cash'):m;if(md==='cash')cashD+=+r.amount;else if(md==='bank')bankD+=+r.amount});cashD=r2(cashD);bankD=r2(bankD);
  const dup=D.tx.find(x=>x.id!==st.approveId&&x.kind==='exp'&&x.date===st.date&&Math.abs(x.amount-a)<.005&&nm(x.desc).trim().toLowerCase()===st.desc.toLowerCase());
- const rows=st.rows.map(r=>{const o=pool(r.to);const isP=r.to.startsWith('patient:');const bk=isP?(r.from||'cash'):'';return`<tr><td>${esc(poolName(r.to))}${isP?` <span class="chip">${bk==='cash'?_('ממזומן','from cash'):_('מאשראי','from credit')}</span>`:''}</td><td class="n">${money(o.t)}</td><td class="n neg">−${money(+r.amount)}</td><td class="n"><b>${money(o.t-(+r.amount))}</b></td></tr>`}).join('');
+ const run={};const rows=st.rows.map(r=>{const o=pool(r.to);const before=r2(run[r.to]??o.t);const after=r2(before-(+r.amount));run[r.to]=after;const isP=r.to.startsWith('patient:');const bk=isP?(r.from||'cash'):'';return`<tr><td>${esc(poolName(r.to))}${isP?` <span class="chip">${bk==='cash'?_('ממזומן','from cash'):_('מאשראי','from credit')}</span>`:''}</td><td class="n">${money(before)}</td><td class="n neg">−${money(+r.amount)}</td><td class="n"><b>${money(after)}</b></td></tr>`}).join('');
  modal(_('אישור לפני שמירה','Confirm before saving'),`<div class="form"><p><b dir="auto">${esc(st.desc)}</b> · ${money(a)} · ${methodLbl(st.method)} · ${fmtDate(st.date)}</p>
   <div class="tw"><table><thead><tr><th>${_('על חשבון','Charged to')}</th><th class="n">${_('לפני','Before')}</th><th class="n">${_('חיוב','Charge')}</th><th class="n">${_('אחרי','After')}</th></tr></thead><tbody>${rows}
   ${cashD?`<tr class="trh"><td><b>${_('מזומן בקופה','Cash in hand')}</b></td><td class="n">${money(ps.cash)}</td><td class="n neg">−${money(cashD)}</td><td class="n"><b>${money(ps.cash-cashD)}</b></td></tr>`:''}
@@ -1541,9 +1541,16 @@ const A={
    const nid='s'+uid();D.staff.push({id:nid,name:{he:he||en,en},role:val('sr'),phone:val('sph'),comp:{},...(RS?{username:un}:{})});if(RS&&un)acct(nid,val('sr'),'');return _('איש הצוות נוסף','Staff member added')});return'keep'},
  addPatient:()=>{const cs=D.staff.filter(s=>s.role==='counselor'),th=D.staff.filter(s=>s.role==='therapist');
   modal(_('מטופל חדש','New patient'),`<div class="form"><div class="fr">${txt('npn',_('שם','Name'))}${txt('npc',_('מדינה','Country'))}</div>
-   <div class="fr">${fld('npa',_('תאריך הגעה','Arrival date'),`<input id="npa" type="date" value="${TD}">`)}${sel('nps',_('שלב','Stage'),STAGES.map(s=>[s.id,s[S.lang]]),'gozal')}</div>
-   <div class="fr">${sel('npco',_('מדריך','Counselor'),[['',_('—','—')],...cs.map(s=>[s.id,nm(s.name)])],'')}${sel('npt',_('מטפל/ת','Therapist'),[['',_('—','—')],...th.map(s=>[s.id,nm(s.name)])],'')}</div></div>`,
-  ()=>{const n=val('npn');if(!need(n,_('כתבו שם','Enter a name')))return'stay';const d=val('npa')||TD;D.patients.push({id:'p'+uid(),name:n,country:val('npc'),arrival:d,stage:val('nps'),history:[{stage:val('nps'),date:d,by:me()}],counselor:val('npco'),therapist:val('npt'),archived:false,fees:[]});return _('המטופל נוסף','Patient added')},_('הוספה','Add'));return'keep'},
+   <div class="fr">${fld('npa',_('תאריך הגעה','Arrival date'),`<input id="npa" type="date" value="${TD}">`)}${sel('nps',_('שלב','Stage'),STAGES.map(s=>[s.id,s[S.lang]]),'gozal')}</div></div>`,
+  ()=>{const n=val('npn');if(!need(n,_('כתבו שם','Enter a name')))return'stay';const d=val('npa')||TD;D.patients.push({id:'p'+uid(),name:n,country:val('npc'),arrival:d,stage:val('nps'),history:[{stage:val('nps'),date:d,by:me()}],archived:false,fees:[]});return _('המטופל נוסף','Patient added')},_('הוספה','Add'));return'keep'},
+ splitBal:()=>{const act=activeP();
+  modal(_('חלוקת היתרות: מזומן / אשראי','Split balances: cash / credit'),`<p class="hint">${_('לכל מטופל כתבו כמה מהיתרה נמצא באשראי. השאר נחשב מזומן. היתרה הכוללת לא משתנה – רק החלוקה ביניהם.','For each patient enter how much of the balance is on credit. The rest counts as cash. The total balance does not change – only the split.')}</p>
+   <div class="tw"><table><thead><tr><th>${_('מטופל','Patient')}</th><th class="n">${_('יתרה','Balance')}</th><th class="n">${_('אשראי','Credit')}</th><th class="n">${_('מזומן','Cash')}</th></tr></thead><tbody>
+   ${act.map(p=>{const o=pool(PK(p.id));return`<tr><td><b>${esc(p.name)}</b></td><td class="n">${money(o.t)}</td><td class="n"><input class="sbk" data-p="${p.id}" data-t="${r2(o.t)}" type="number" inputmode="decimal" step="0.01" value="${r2(o.bank)}" style="width:110px" aria-label="${_('אשראי','Credit')} – ${esc(p.name)}"></td><td class="n" id="sbc_${p.id}">${money(r2(o.t-o.bank))}</td></tr>`}).join('')}</tbody></table></div>`,
+   ()=>{let n=0;document.querySelectorAll('.sbk').forEach(i=>{const pid=i.dataset.p,k=PK(pid),o=pool(k);const nb=r2(+i.value||0);const d=r2(nb-o.bank);if(Math.abs(d)<.005)return;
+     D.tx.push({id:uid(),date:TD,kind:'rebal',method:'none',amount:Math.abs(d),desc:d>0?`${_('העברה ממזומן לאשראי','Cash to credit')} ${money(d)}`:`${_('העברה מאשראי למזומן','Credit to cash')} ${money(-d)}`,moves:[{p:k,d:-d,m:'cash'},{p:k,d:d,m:'bank'}],by:me()});n++});
+    return n?`${_('החלוקה עודכנה ל','Split updated for ')}${n} ${_('מטופלים','patients')}`:_('לא היה שינוי','Nothing changed')},_('שמירה','Save'));
+  document.querySelectorAll('.sbk').forEach(i=>i.addEventListener('input',()=>{const c=document.getElementById('sbc_'+i.dataset.p);if(c)c.textContent=money(r2(+i.dataset.t-(+i.value||0)))}));return'keep'},
  settings:()=>{const s=D.settings;modal(_('הגדרות','Settings'),`<div class="form"><div class="fr">${num('st1',_('מחיר חפיסת סיגריות ₪','Cigarette pack price ₪'),s.cigPrice)}${num('st2',_('החזר נסיעה לק״מ ₪','Mileage per km ₪'),s.kmRate)}</div>${num('st3',_('שער דולר ברירת מחדל','Default USD rate'),s.fx)}</div>`,
   ()=>{const a=+val('st1'),b=+val('st2'),c=+val('st3');if(!need(a>=0&&b>=0&&c>0,_('בדקו את הערכים','Check the values')))return'stay';s.cigPrice=a;s.kmRate=b;s.fx=c;return _('ההגדרות נשמרו','Settings saved')});return'keep'},
  demoLoad:()=>{modal(_('טעינת נתוני דוגמה','Load sample data'),`<p>${_('יתווספו מטופלים, פעילויות וכספים לדוגמה, וכל הצוות יראה אותם. הם מסומנים כדוגמה ואפשר למחוק את כולם בלחיצה אחת.','Sample patients, activities and money entries will be added, and the whole team will see them. They are marked as samples and can all be deleted in one click.')}</p>`,()=>{loadDemo();return _('נתוני הדוגמה נטענו','Sample data loaded')},_('טעינה','Load'));return'keep'},
@@ -1567,9 +1574,9 @@ const A={
   $('#rxadd').onclick=()=>{read();it.push({desc:'',amount:''});draw();const l=box.querySelectorAll('[data-f=desc]');l[l.length-1].focus()};draw();return'keep'},
  editPatient:v=>{const p=pat(v);const cs=D.staff.filter(s=>s.role==='counselor'),th=D.staff.filter(s=>s.role==='therapist');
   modal(`${_('עריכת פרטים','Edit details')} · ${p.name}`,`<div class="form"><div class="fr">${txt('epn',_('שם','Name'),p.name)}${txt('epc',_('מדינה','Country'),p.country||'')}</div>
-   <div class="fr">${fld('epa',_('תאריך הגעה','Arrival date'),`<input id="epa" type="date" value="${p.arrival}">`)}${sel('epco',_('מדריך','Counselor'),[['',_('—','—')],...cs.map(s=>[s.id,nm(s.name)])],p.counselor||'')}</div>
-   ${sel('ept',_('מטפל/ת','Therapist'),[['',_('—','—')],...th.map(s=>[s.id,nm(s.name)])],p.therapist||'')}<p class="hint">${_('לשינוי שלב משתמשים בכפתור “שינוי שלב” בלשונית הסקירה, כדי שההיסטוריה תישמר.','To change the stage use “Change stage” on the Overview tab, so the history is kept.')}</p></div>`,
-  ()=>{const n=val('epn');if(!need(n,_('כתבו שם','Enter a name')))return'stay';p.name=n;p.country=val('epc');p.arrival=val('epa')||p.arrival;p.counselor=val('epco');p.therapist=val('ept');return _('הפרטים נשמרו','Details saved')});return'keep'},
+   <div class="fr">${fld('epa',_('תאריך הגעה','Arrival date'),`<input id="epa" type="date" value="${p.arrival}">`)}</div>
+   <p class="hint">${_('לשינוי שלב משתמשים בכפתור “שינוי שלב” בלשונית הסקירה, כדי שההיסטוריה תישמר.','To change the stage use “Change stage” on the Overview tab, so the history is kept.')}</p></div>`,
+  ()=>{const n=val('epn');if(!need(n,_('כתבו שם','Enter a name')))return'stay';p.name=n;p.country=val('epc');p.arrival=val('epa')||p.arrival;return _('הפרטים נשמרו','Details saved')});return'keep'},
  unarchive:v=>{const p=pat(v);const linked=D.tx.filter(x=>x.dischargeOf===v||(x.kind==='refund'&&x.date===p.discharged&&x.moves.some(m=>m.p===PK(v))));
   modal(`${_('ביטול השחרור','Undo discharge')} · ${p.name}`,`<div class="form"><p>${_('המטופל יחזור לרשימת הפעילים.','The patient returns to the active list.')}</p>${linked.length?`<p>${_('יבוטלו גם הרישומים שנעשו בשחרור:','The entries made at discharge are also undone:')}</p><ul class="items">${linked.map(x=>`<li><span>${esc(nm(x.desc))}</span><b class="num">${money(x.amount)}</b></li>`).join('')}</ul>`:''}</div>`,
   ()=>{const ids=new Set(linked.map(x=>x.id));D.tx=D.tx.filter(x=>!ids.has(x.id));p.archived=false;delete p.discharged;S.arch=false;return _('המטופל הוחזר לפעילים','Patient is active again')},_('ביטול השחרור','Undo discharge'));return'keep'},
