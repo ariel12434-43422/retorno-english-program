@@ -1,0 +1,7 @@
+# never commit patient data or keys
+*export*.json
+*.env
+.env*
+vapid*.json
+supabase/.temp/
+node_modules/

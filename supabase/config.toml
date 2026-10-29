@@ -1,0 +1,4 @@
+project_id = "retorno-english-program"
+
+[functions.notify]
+verify_jwt = true

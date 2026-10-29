@@ -1,0 +1,40 @@
+# Sets up the database and the notification sender in Supabase.
+# Runs when the database or the function changes, or by hand (Actions → Set up Supabase → Run workflow).
+name: Set up Supabase
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/**']
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Check settings
+        run: |
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PROJECT_REF; do
+            if [ -z "${!v}" ]; then echo "::error::Missing $v – see README (step 3)."; exit 1; fi
+          done
+      - name: Link the project
+        run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Create / update the database
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+      - name: Notification keys
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
+        run: |
+          PUB=$(grep -o 'vapidPublicKey: "[^"]*"' web/config.js | cut -d'"' -f2)
+          SUBJ="${VAPID_SUBJECT:-https://github.com/${GITHUB_REPOSITORY}}"
+          if [ -z "$VAPID_PRIVATE_KEY" ]; then echo "::error::Missing secret VAPID_PRIVATE_KEY"; exit 1; fi
+          supabase secrets set --project-ref "$PROJECT_REF" VAPID_PUBLIC_KEY="$PUB" VAPID_PRIVATE_KEY="$VAPID_PRIVATE_KEY" VAPID_SUBJECT="$SUBJ"
+      - name: Publish the notification sender
+        run: supabase functions deploy notify --project-ref "$PROJECT_REF"
