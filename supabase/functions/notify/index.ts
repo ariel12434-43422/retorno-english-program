@@ -52,8 +52,8 @@ Deno.serve(async (req) => {
     });
 
     webpush.setVapidDetails(
-      Deno.env.get("VAPID_SUBJECT") ?? "mailto:admin@example.com",
-      Deno.env.get("VAPID_PUBLIC_KEY")!,
+      Deno.env.get("VAPID_SUBJECT") ?? "https://ariel12434-43422.github.io/retorno-english-program/",
+      Deno.env.get("VAPID_PUBLIC_KEY") ?? "BJ9UEI92vgYNkxy3ift5gpz0oTtJAFicFQw6Ej1T9eOztvEE4IUBS8g7xDIg9kXxER-ndvDVyQhdOvplaqTgY0U",
       Deno.env.get("VAPID_PRIVATE_KEY")!,
     );
     const payload = JSON.stringify({

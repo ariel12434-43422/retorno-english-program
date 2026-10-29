@@ -1,4 +1,4 @@
-project_id = "retorno-english-program"
+project_id = "ukdqkogqimugwwqyvtxq"
 
 [functions.notify]
-verify_jwt = true
+verify_jwt = false
