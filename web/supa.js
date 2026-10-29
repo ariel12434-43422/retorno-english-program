@@ -6,7 +6,13 @@
   const ready = CFG.supabaseUrl && CFG.supabaseAnonKey && !/YOUR_/.test(CFG.supabaseUrl);
   const lang = (() => { try { return JSON.parse(localStorage.getItem('retorno-hub-prefs') || '{}').lang || 'he'; } catch (e) { return 'he'; } })();
   const T = (he, en) => (lang === 'he' ? he : en);
-  const app = () => document.getElementById('app');
+  // the sign-in screen lives in its own layer, so the app drawing underneath never hides it
+  const app = () => {
+    let el = document.getElementById('authLayer');
+    if (!el) { el = document.createElement('div'); el.id = 'authLayer'; el.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:auto;background:var(--bg,#eef2ee)'; (document.body || document.documentElement).appendChild(el); }
+    return el;
+  };
+  const closeAuth = () => { const el = document.getElementById('authLayer'); if (el) el.remove(); };
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   document.documentElement.lang = lang; document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
 
@@ -64,10 +70,10 @@
   let resolveLogin; const loggedIn = new Promise(r => (resolveLogin = r));
   sb.auth.onAuthStateChange((ev, s) => {
     if (ev === 'PASSWORD_RECOVERY') { loginForm('newpw'); return; }
-    if (s && !session) { session = s; resolveLogin(s); }
+    if (s && !session) { session = s; closeAuth(); resolveLogin(s); }
     if (!s && session && ev === 'SIGNED_OUT') location.reload();
   });
-  sb.auth.getSession().then(({ data }) => { if (data.session) { session = data.session; resolveLogin(data.session); } else if (!/type=recovery/.test(location.hash)) loginForm('in'); });
+  sb.auth.getSession().then(({ data }) => { if (data.session) { session = data.session; closeAuth(); resolveLogin(data.session); } else if (!/type=recovery/.test(location.hash)) { if (document.body) loginForm('in'); else document.addEventListener('DOMContentLoaded', () => { if (!session) loginForm('in'); }); } });
 
   async function whoAmI() {
     const r1 = await sb.rpc('bootstrap_admin'); isAdmin = !!r1.data;
