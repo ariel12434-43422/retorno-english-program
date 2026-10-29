@@ -19,17 +19,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Fill in the Supabase connection
-        env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
-        run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::Add the repository variables SUPABASE_URL and SUPABASE_ANON_KEY (Settings → Secrets and variables → Actions → Variables)."; exit 1
-          fi
-          sed -i "s|YOUR_SUPABASE_URL|$SUPABASE_URL|; s|YOUR_SUPABASE_ANON_KEY|$SUPABASE_ANON_KEY|" web/config.js
-          # new cache name per release, so installed apps pick up the update
-          sed -i "s|const CACHE = 'retorno-v1'|const CACHE = 'retorno-${GITHUB_SHA::8}'|" web/sw.js
+      - name: New cache name per release, so installed apps pick up the update
+        run: sed -i "s|const CACHE = 'retorno-v1'|const CACHE = 'retorno-${GITHUB_SHA::8}'|" web/sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

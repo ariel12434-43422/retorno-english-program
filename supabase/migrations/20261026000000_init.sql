@@ -117,3 +117,9 @@ create policy subs_own on public.push_subs for all to authenticated using (user_
 do $$ begin
   alter publication supabase_realtime add table public.docs;
 exception when duplicate_object then null; end $$;
+
+-- explicit access for signed-in users (rows are still limited by the policies above)
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.docs, public.app_admins, public.app_members, public.push_subs to authenticated;
+grant execute on all functions in schema public to authenticated;
+revoke all on public.docs, public.app_admins, public.app_members, public.push_subs from anon;
