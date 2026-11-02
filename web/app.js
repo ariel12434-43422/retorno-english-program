@@ -262,7 +262,7 @@ const canAct=x=>x.type!=='routine'&&(S.role==='manager'||(S.role!=='admissions'&
 const isMine=x=>x.staff===me()||(S.role==='counselor'&&x.byShift&&[me(),''].includes(onShift(shiftAt(x.date,x.time))));
 const whoLeads=x=>x.staff?staffName(x.staff):x.leader?esc(nm(x.leader)):x.byShift?(staffName(onShift(shiftAt(x.date,x.time)))||_('מדריך במשמרת','Counselor on shift')):'';
 const canSeeNote=n=>n.kind==='therapy'?P().clinical:P().daily;
-const reqAmount=r=>r.kind==='trip'?Math.round(r.km*D.settings.kmRate):r.amount;
+const reqAmount=r=>r.kind==='trip'?(r.amount>0?r.amount:Math.round((r.km||0)*D.settings.kmRate)):r.amount;
 const myPatients=()=>activeP();
 
 /* ---------- cost engine ----------
@@ -395,7 +395,7 @@ function vDash(){
   <div class="kpi"><span class="lbl">${_('מזומן בקופה','Cash in hand')}</span><span class="val">${money(ps.cash)}</span><span class="sub">${pend.length} ${_('בקשות ממתינות לאישור','requests awaiting approval')}</span></div></div>`;
  h+=`<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>${_('הלו״ז של היום','Today’s schedule')}</h2><button class="btn sm ghost" data-a="nav" data-v="schedule">${_('ללו״ז המלא','Full schedule')}</button></div>
   <div class="list">${all.map(x=>agRow(x,false)).join('')||empty(_('אין פעילויות היום.','No activities today.'))}</div></section>${incidentsCard(7)}</div>
-  <div class="stack">${shiftCard()}${alertsCard()}${tasksMini()}${stageCard()}${followCard()}</div></div>`;
+  <div class="stack">${newSumsCard()}${shiftCard()}${alertsCard()}${tasksMini()}${stageCard()}${followCard()}</div></div>`;
  return h;
 }
 function quickActions(list){return`<div class="qa">${list.map(([a,v,icn,lbl,sub])=>`<button class="qa-b" data-a="${a}" ${v?`data-v="${v}"`:''}>${ic(icn)}<span><b>${lbl}</b><small>${sub}</small></span></button>`).join('')}</div>`}
@@ -405,7 +405,7 @@ function vHomeCounselor(){
  return`${unreadBanner()}<div class="page-h"><div><p class="eyebrow">${fmtDate(TD,{weekday:'long',day:'numeric',month:'long'})}</p><h1>${_('היום שלי','My day')}, ${staffName(me())}</h1></div></div>
  ${quickActions([['incident','',"flag",_('דיווח חריגה','Report an incident'),_('מה קרה ואיזו תגובה ניתנה','What happened and the response')],['nav','summary','pen',todaySum?_('סיכום היום','Today’s summary'):_('כתיבת סיכום יום','Write daily summary'),todaySum?(todaySum.status==='published'?_('פורסם לצוות','Published to the team'):_('טיוטה – ממתין לאישור','Draft – awaiting approval')):_('בכתיבה או בהכתבה','Type or dictate')],['nav','schedule','cal',_('לו״ז ונוכחות','Schedule & attendance'),`${mine.filter(x=>x.log.status==='planned').length} ${_('פעילויות פתוחות היום','open activities today')}`],['reportExp','','wallet',_('דיווח הוצאה','Report an expense'),_('פירוט לכל פריט – המנהל מסווג','Item by item – the manager classifies')],['reportSession','','check',_('דיווח פגישה עם מטפל','Report a therapist session'),_('נשלח לאישור המנהל','Goes to the manager for approval')],['shift','','badge',_('דיווח משמרת','Report a shift'),D.shifts.some(s=>s.staff===me()&&s.date===TD)?_('דווחה משמרת להיום','Today’s shift reported'):_('נרשם לעלות החודש','Counts toward this month’s cost')]])}
  <div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>${_('הפעילויות שלי היום','My activities today')}</h2></div><div class="list">${mine.map(x=>agRow(x,false)).join('')||empty(_('אין לך פעילויות היום.','You have no activities today.'))}</div></section>${incidentsCard(3)}</div>
- <div class="stack">${shiftCard()}${tasksMini()}${followCard()}</div></div>`;
+ <div class="stack">${clockCard()}${newSumsCard()}${shiftCard()}${tasksMini()}${followCard()}</div></div>`;
 }
 function vHomeTherapist(){
  const mine=instances(TD).filter(x=>x.type!=='routine'&&x.staff===me());
@@ -417,7 +417,7 @@ function vHomeTherapist(){
   return`<button class="prow" data-a="openP" data-v="${p.id}"><div class="grow"><div class="t">${esc(p.name)} ${stagePill(p.stage)} <span class="dayn">${_('יום','Day')} ${dayN(p)}</span></div>
    <div class="ag-extra">${inc.length?`<span class="pill bad">${inc.length} ${_('חריגות השבוע','incidents this week')}</span>`:''}${s.l?`<span class="pill warn">${s.l} ${_('איחורים','late')}</span>`:''}${s.a?`<span class="pill bad">${s.a} ${_('היעדרויות','absences')}</span>`:''}${!inc.length&&!s.l&&!s.a?`<span class="pill ok">${_('שבוע תקין','Steady week')}</span>`:''}</div>
    ${last?`<div class="s" dir="auto">${esc(last.date===TD?_('היום','Today'):fmtDate(last.date))} · ${esc(trim(last.text,110))}</div>`:''}</div></button>`}).join('')}</div></section></div>
- <div class="stack"><section class="card"><div class="card-h"><h2>${_('המפגשים שלי היום','My sessions today')}</h2></div><div class="list">${mine.map(x=>agRow(x,false)).join('')||empty(_('אין מפגשים היום.','No sessions today.'))}</div></section>
+ <div class="stack">${newSumsCard()}<section class="card"><div class="card-h"><h2>${_('המפגשים שלי היום','My sessions today')}</h2></div><div class="list">${mine.map(x=>agRow(x,false)).join('')||empty(_('אין מפגשים היום.','No sessions today.'))}</div></section>
  <section class="card"><div class="card-h"><h2>${_('מפגשים בלי סיכום','Sessions without a summary')}</h2><span class="chip">${open.length}</span></div><div class="list">${open.slice(-6).reverse().map(x=>`<div class="row"><div class="grow"><div class="t">${esc(pat(x.patients[0])?.name||'')}</div><div class="s">${fmtDate(x.date,{weekday:'short',day:'numeric',month:'short'})} · ${x.time}</div></div><button class="btn sm" data-a="att" data-v="${x.key}">${_('הוספת סיכום','Add summary')}</button></div>`).join('')||empty(_('כל המפגשים מסוכמים.','All sessions have a summary.'))}</div></section></div></div>`;
 }
 const trim=(t,n)=>t.length>n?t.slice(0,n-1)+'…':t;
@@ -506,7 +506,7 @@ function timeline(p){
  for(let i=14;i>=0;i--){const d=add(TD,-i);instances(d).forEach(x=>{const v=x.log.att&&x.log.att[p.id];if(v==='l'||v==='a')ev.push({t:'att',date:d,time:x.time,html:`<span class="pill ${v==='l'?'warn':'bad'}">${v==='l'?_('איחר','Late'):_('נעדר','Absent')}</span> ${esc(nm(x.title))} <span class="muted">· ${staffName(x.log.by||x.staff)}</span>`})})}
  if(pr.incidents)D.incidents.filter(i=>i.pid===p.id).forEach(i=>ev.push({t:'inc',date:i.date,time:i.time,html:incidentBlock(i,false),raw:true}));
  D.notes.filter(n=>n.pid===p.id&&canSeeNote(n)).forEach(n=>ev.push({t:'sum',date:n.date,time:n.time||'',raw:true,html:noteBlock(n)}));
- if(pr.daily)D.summaries.filter(s=>s.status==='published').forEach(s=>s.parts.filter(x=>x.pid===p.id).forEach(x=>ev.push({t:'sum',date:s.date,time:'23:59',raw:true,html:`<div class="note"><div class="note-h"><span class="typ">${_('סיכום יום','Daily summary')}</span><b style="color:var(--ink)">${staffName(s.author)}</b><span>${fmtDate(s.date)}</span></div><div class="note-b" dir="auto">${esc(x.text)}</div></div>`})));
+ if(pr.daily)D.summaries.filter(s=>s.status==='published').forEach(s=>s.parts.filter(x=>x.pid===p.id).forEach(x=>ev.push({t:'sum',date:s.date,time:'23:59',raw:true,html:`<div class="note"><div class="note-h"><span class="typ">${_('סיכום יום','Daily summary')}</span><b style="color:var(--ink)">${staffName(s.author)}</b><span>${fmtDate(s.date)}</span></div>${topicChips(x.topics)}<div class="note-b" dir="auto">${esc(x.text)}</div>${readBar(itemOf('sum:'+s.id))}</div>`})));
  p.history.forEach(h=>ev.push({t:'stage',date:h.date,time:'00:00',html:`${_('מעבר ל','Moved to ')}${stagePill(h.stage)} <span class="muted">· ${staffName(h.by)}</span>${h.note?` <span class="muted" dir="auto">· ${esc(h.note)}</span>`:''}`}));
  const hidden=D.notes.filter(n=>n.pid===p.id&&!canSeeNote(n)).length;
  return{ev:ev.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)),hidden};
@@ -514,11 +514,90 @@ function timeline(p){
 function noteBlock(n){
  const t=trShown('note',n.id)&&n.tr;
  return`<div class="note"><div class="note-h">${n.kind==='therapy'?`<span class="typ individual">${_('סיכום טיפולי','Therapy summary')}</span>`:`<span class="typ">${_('תיעוד','Note')}</span>`}<b style="color:var(--ink)">${staffName(n.author)}</b><span>${when(n.date,n.time)}</span>${n.followup?`<span class="pill ${n.resolved?'ok':'warn'}">${n.resolved?_('טופל','Handled'):_('למעקב','Follow-up')}</span>`:''}${n.session?`<span class="chip">${_('מקושר למפגש','Linked to session')}</span>`:''}${n.source==='whatsapp'?`<span class="chip">${_('מקבוצת הוואטסאפ','From the WhatsApp group')}</span>`:''}</div>
- <div class="note-b" dir="auto">${esc(t?n.tr:n.text)}</div>${trControl('note',n.id,n)}</div>`;
+ ${topicChips(n.topics)}<div class="note-b" dir="auto">${esc(t?n.tr:n.text)}</div>${n.task?`<div class="taskln ${n.taskDone?'done':''}">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(n.task)}</span> ${n.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:''}</div>`:''}${trControl('note',n.id,n)}${readBar(itemOf('note:'+n.id))}</div>`;
+}
+/* ---------- summaries: who should read them, topics, tasks, one connected thread per patient ---------- */
+const READ_FROM='2026-11-02';
+const TOPICS=[{id:'use',he:'שימוש וחשק',en:'Use & craving'},{id:'emo',he:'רגשי',en:'Emotional'},{id:'family',he:'משפחה',en:'Family'},{id:'behav',he:'התנהגות וגבולות',en:'Behaviour & limits'},{id:'group',he:'קשרים בקבוצה',en:'Peer relations'},{id:'health',he:'בריאות ותרופות',en:'Health & meds'},{id:'routine',he:'שגרה ושינה',en:'Routine & sleep'},{id:'steps',he:'צעדים ורוחניות',en:'Steps & spirituality'},{id:'future',he:'עתיד ותעסוקה',en:'Future & work'}];
+const topicLbl=id=>{const t=TOPICS.find(x=>x.id===id);return t?t[S.lang]:id};
+const topicChips=ts=>(ts||[]).length?`<div class="chips">${ts.map(t=>`<span class="chip">${esc(topicLbl(t))}</span>`).join('')}</div>`:'';
+function sumItems(all){
+ const out=[];
+ if(P().daily)D.summaries.filter(s=>s.status==='published').forEach(s=>out.push({key:'sum:'+s.id,kind:'daily',type:_('סיכום יום / משמרת','Daily / shift summary'),date:s.date,time:'',at:s.publishedAt||s.date,author:s.author,pids:s.parts.map(x=>x.pid),text:s.general||s.parts.map(x=>x.text).join(' · '),obj:s}));
+ D.notes.filter(n=>(all||n.source!=='whatsapp')&&canSeeNote(n)).forEach(n=>out.push({key:'note:'+n.id,kind:n.kind==='therapy'?'therapy':'daily',type:n.kind==='therapy'?_('סיכום טיפולי','Therapy summary'):n.source==='whatsapp'?_('תיעוד (מקבוצת הוואטסאפ)','Note (WhatsApp group)'):_('תיעוד יומי','Daily note'),date:n.date,time:n.time||'',at:n.at||(n.date+'T'+(n.time||'00:00')),author:n.author,pids:[n.pid],text:n.text,obj:n}));
+ return out.sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+}
+const audienceOf=it=>D.staff.filter(s=>s.id!==it.author&&PERM[s.role]&&(it.kind==='therapy'?PERM[s.role].clinical:PERM[s.role].daily)).map(s=>s.id);
+const readersOf=key=>(D.reads||[]).filter(r=>r.m&&r.m[key]).map(r=>r.id);
+const unreadSums=()=>{const r=readMap();return sumItems().filter(it=>it.date>=READ_FROM&&it.author!==me()&&!r[it.key]&&audienceOf(it).includes(me()))};
+function readBar(it){
+ if(!it||it.date<READ_FROM||it.obj.source==='whatsapp')return'';
+ const r=readMap(),aud=audienceOf(it),mine=aud.includes(me()),rd=readersOf(it.key);
+ const btn=mine?(r[it.key]?`<span class="chip on">✓ ${_('קראת','You read this')}</span>`:`<button class="btn sm primary" data-a="sumRead" data-v="${it.key}">${_('קראתי','I read it')}</button>`):'';
+ const who=(S.role==='manager'||it.author===me())&&aud.length?`<span class="s">${_('נקרא ע״י','Read by')}:</span> ${aud.map(id=>`<span class="chip ${rd.includes(id)?'on':''}" title="${rd.includes(id)?_('קרא/ה','Read'):_('טרם קרא/ה','Not read yet')}">${esc(staffName(id))}${rd.includes(id)?' ✓':''}</span>`).join(' ')}`:'';
+ return btn||who?`<div class="readbar">${btn}${who}</div>`:'';
+}
+const itemOf=key=>sumItems(true).find(i=>i.key===key);
+function newSumsCard(){
+ if(!P().daily)return'';const u=unreadSums();
+ return`<section class="card"><div class="card-h"><h2>${_('סיכומים חדשים','New summaries')}</h2><span class="chip ${u.length?'warn':''}">${u.length} ${_('לא נקראו','unread')}</span></div>
+ ${u.length?`<div class="list">${u.slice(0,8).map(it=>`<div class="row unread"><div class="grow"><div class="t">${it.type} · ${it.pids.map(id=>esc(pat(id)?.name||'')).filter(Boolean).join(', ')||_('כללי','General')}</div><div class="s">${esc(staffName(it.author))} · ${fmtDate(it.date)}</div><div class="note-b" dir="auto">${esc(trim(it.text||'',150))}</div></div><div class="la"><button class="btn sm ghost" data-a="sumOpen" data-v="${it.key}">${_('פתיחה','Open')}</button><button class="btn sm primary" data-a="sumRead" data-v="${it.key}">${_('קראתי','I read it')}</button></div></div>`).join('')}</div>${u.length>8?`<p class="hint">${_('ועוד','And')} ${u.length-8} ${_('נוספים','more')}</p>`:''}`:empty(_('קראת את כל הסיכומים החדשים.','You are up to date.'))}</section>`;
+}
+function careItems(p,all){
+ return sumItems(all).filter(it=>it.pids.includes(p.id)).map(it=>{
+  if(it.key.startsWith('sum:')){const part=it.obj.parts.find(x=>x.pid===p.id);return{...it,text:part?part.text:'',topics:part&&part.topics||[]}}
+  return{...it,topics:it.obj.topics||[],task:it.obj.task||'',taskDone:!!it.obj.taskDone,reply:it.obj.reply||''}});
+}
+function careThread(p){
+ const its=careItems(p,true);const hiddenTher=D.notes.filter(n=>n.pid===p.id&&n.kind==='therapy'&&!canSeeNote(n)).length;
+ const tasks=its.filter(i=>i.task);const open=tasks.filter(i=>!i.taskDone);
+ const cnt={};its.forEach(i=>(i.topics||[]).forEach(t=>cnt[t]=(cnt[t]||0)+1));
+ const f=S.ctop&&cnt[S.ctop]?S.ctop:'';const shown=f?its.filter(i=>(i.topics||[]).includes(f)):its;
+ const byKey={};its.forEach(i=>byKey[i.key]=i);
+ const weeks={};shown.forEach(i=>{const w=add(i.date,-dowOf(i.date));(weeks[w]||(weeks[w]=[])).push(i)});
+ const entry=i=>{const rp=i.reply&&byKey[i.reply];const kids=its.filter(x=>x.reply===i.key);
+  return`<div class="note care ${i.kind}" id="c_${i.key.replace(':','_')}"><div class="note-h"><span class="typ ${i.kind==='therapy'?'individual':''}">${i.type}</span><b style="color:var(--ink)">${esc(staffName(i.author))}</b><span>${when(i.date,i.time)}</span></div>
+  ${rp?`<div class="s">↩ ${_('בהמשך ל','Follows')}: ${rp.type} · ${esc(staffName(rp.author))} · ${fmtDate(rp.date)}</div>`:''}${topicChips(i.topics)}
+  <div class="note-b" dir="auto">${esc(i.text&&i.text.length>600?trim(i.text,600):i.text||'')}</div>${i.text&&i.text.length>600?`<details><summary>${_('להמשך','More')}</summary><div class="note-b" dir="auto">${esc(i.text)}</div></details>`:''}
+  ${i.task?`<div class="taskln ${i.taskDone?'done':''}">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(i.task)}</span> ${i.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:`<span class="pill warn">${_('פתוחה','Open')}</span>`}</div>`:''}
+  ${kids.length?`<div class="s">${kids.length} ${_('תגובות המשך','follow-ups')}: ${kids.map(k=>`${esc(staffName(k.author))} (${fmtDate(k.date)})`).join(', ')}</div>`:''}
+  <div class="toolbar">${!p.archived&&P().daily?`<button class="btn sm ghost" data-a="note" data-v="${p.id}|${i.key}">${_('המשך מכאן','Continue from here')}</button>`:''}</div>${readBar(i)}</div>`};
+ const col=(list,kind)=>list.filter(i=>i.kind===kind).map(entry).join('');
+ return`<div class="toolbar">${!p.archived&&P().daily?`<button class="btn sm primary" data-a="note" data-v="${p.id}">+ ${_('תיעוד / סיכום','Note / summary')}</button>`:''}<button class="btn sm" data-a="exportSums" data-v="${p.id}">${_('ייצוא כל הסיכומים לקובץ','Export all summaries to a file')}</button></div>
+ <div class="grid2 even"><section class="card"><div class="card-h"><h2>${_('משימות שניתנו למטופל','Tasks given to the patient')}</h2><span class="chip ${open.length?'warn':''}">${open.length} ${_('פתוחות','open')}</span></div>
+  ${tasks.length?`<div class="list">${tasks.slice().sort((a,b)=>Number(a.taskDone)-Number(b.taskDone)||String(b.at).localeCompare(String(a.at))).slice(0,12).map(i=>`<div class="row"><div class="grow"><div class="t" dir="auto">${esc(i.task)}</div><div class="s">${esc(staffName(i.author))} · ${fmtDate(i.date)}${i.taskDone&&i.obj.taskDoneBy?` · ${_('סומן כבוצע ע״י','marked done by')} ${esc(staffName(i.obj.taskDoneBy))}`:''}</div></div>${i.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:`<button class="btn sm" data-a="taskDone" data-v="${i.obj.id}">${_('בוצע','Done')}</button>`}</div>`).join('')}</div>`:empty(_('עוד לא נרשמו משימות. אפשר להוסיף משימה בכל תיעוד או סיכום.','No tasks yet. Add one in any note or summary.'))}</section>
+ <section class="card"><div class="card-h"><h2>${_('נושאים שעולים','Recurring topics')}</h2></div>${Object.keys(cnt).length?`<div class="toolbar"><button class="chip ${!f?'on':''}" data-a="ctop" data-v="">${_('הכל','All')}</button>${TOPICS.filter(t=>cnt[t.id]).sort((a,b)=>cnt[b.id]-cnt[a.id]).map(t=>`<button class="chip ${f===t.id?'on':''}" data-a="ctop" data-v="${t.id}">${t[S.lang]} · ${cnt[t.id]}</button>`).join('')}</div><p class="hint">${_('לחיצה על נושא מציגה רק את הרשומות עליו – מכל הצוות.','Tap a topic to see only the entries about it – from the whole team.')}</p>`:empty(_('כשמסמנים נושאים בתיעוד ובסיכומים, הם מתרכזים כאן.','Topics you tag in notes and summaries gather here.'))}</section></div>
+ ${Object.keys(weeks).sort().reverse().map(w=>`<section class="card"><div class="card-h"><h2>${_('שבוע','Week of')} ${fmtDate(w,{day:'numeric',month:'short'})} – ${fmtDate(add(w,6),{day:'numeric',month:'short',year:'numeric'})}</h2><span class="chip">${weeks[w].length}</span></div>
+  <div class="grid2 even care-cols"><div><h3 class="lane">${_('מדריכים וצוות','Counselors & team')}</h3>${col(weeks[w],'daily')||`<p class="hint">${_('אין רשומות בשבוע הזה.','Nothing this week.')}</p>`}</div>
+  <div><h3 class="lane">${_('מטפלים','Therapists')}</h3>${P().clinical?(col(weeks[w],'therapy')||`<p class="hint">${_('אין סיכומים טיפוליים בשבוע הזה.','No therapy summaries this week.')}</p>`):lockBox(_('סיכומים טיפוליים גלויים למטפלים ולמנהל בלבד.','Therapy summaries are visible to therapists and the manager only.'))}</div></div></section>`).join('')||`<section class="card">${empty(_('עוד אין סיכומים למטופל הזה.','No summaries for this patient yet.'))}</section>`}
+ ${hiddenTher&&!P().clinical?`<p class="hint">${hiddenTher} ${_('סיכומים טיפוליים מוסתרים לפי ההרשאה שלך.','therapy summaries are hidden by your access level.')}</p>`:''}`;
+}
+async function exportSums(pid){
+ const p=pat(pid);if(!p)return;
+ if(!DL){toast(_('שמירת קבצים זמינה כשהעמוד פתוח בתוך Claude או באפליקציה.','Saving files works inside Claude or in the app.'));return}
+ const its=careItems(p,true).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+ const daily=its.filter(i=>i.kind==='daily'),ther=P().clinical?its.filter(i=>i.kind==='therapy'):[];
+ try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js')}catch(e){toast(_('לא הצלחתי לטעון את רכיב הקבצים.','Could not load the file component.'));return}
+ const rtl=S.lang==='he';const x=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'');
+ const pr=(t,o={})=>`<w:p><w:pPr>${rtl?'<w:bidi/>':''}${o.h?`<w:pStyle w:val="Heading${o.h}"/>`:''}<w:spacing w:after="${o.after??120}"/></w:pPr>${String(t).split('\n').map((ln,i)=>`<w:r><w:rPr>${rtl?'<w:rtl/>':''}${o.b?'<w:b/><w:bCs/>':''}${o.c?`<w:color w:val="${o.c}"/>`:''}${o.sz?`<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>`:''}</w:rPr>${i?'<w:br/>':''}<w:t xml:space="preserve">${x(ln)}</w:t></w:r>`).join('')}</w:p>`;
+ const ent=i=>pr(`${fmtDate(i.date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}${i.time?' · '+i.time:''}  |  ${staffName(i.author)}  |  ${i.type}`,{b:1,c:'2F5D50',after:60})+((i.topics||[]).length?pr(_('נושאים','Topics')+': '+i.topics.map(topicLbl).join(', '),{c:'666666',sz:18,after:60}):'')+pr(i.text||'—')+(i.task?pr(`${_('משימה למטופל','Task for the patient')}: ${i.task}${i.taskDone?' ('+_('בוצע','done')+')':''}`,{c:'8A5A00'}):'')+pr('',{after:80});
+ const sec=(t,list)=>pr(`${t} (${list.length})`,{h:1})+(list.length?list.map(ent).join(''):pr(_('אין רשומות.','None.')));
+ const body=pr(`${p.name} – ${_('סיכומים','Summaries')}`,{h:0,b:1,sz:36})+pr(`${_('הגעה','Arrival')}: ${fmtDate(p.arrival,{day:'numeric',month:'long',year:'numeric'})} · ${_('הופק','Generated')}: ${fmtDate(TD,{day:'numeric',month:'long',year:'numeric'})} ${NOWT} · ${staffName(me())}`,{c:'666666'})+pr(_('מסמך חסוי – מידע טיפולי. אין להעביר ללא אישור.','Confidential – clinical information. Do not share without approval.'),{c:'B00020',b:1})
+  +sec(_('סיכומי יום / משמרת','Daily / shift summaries'),daily)+(P().clinical?sec(_('סיכומי מטפלים','Therapist summaries'),ther):'');
+ const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr>${rtl?'<w:bidi/>':''}<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+ const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="${rtl?'he-IL':'en-US'}" w:bidi="he-IL"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:spacing w:before="360" w:after="160"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:bCs/><w:color w:val="2F5D50"/><w:sz w:val="30"/><w:szCs w:val="30"/></w:rPr></w:style></w:styles>`;
+ const z=new JSZip();
+ z.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+ z.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+ z.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+ z.file('word/document.xml',doc);z.file('word/styles.xml',styles);
+ const buf=await z.generateAsync({type:'arraybuffer'});
+ const fn=`summaries-${p.name.replace(/[^A-Za-z0-9א-ת]+/g,'-').replace(/^-|-$/g,'')||'patient'}-${TD}.docx`;
+ try{await DL.save({filename:fn,data:buf});toast(_('הקובץ נשמר','File saved'))}catch(e){toast(dlErr(e&&e.code))}
 }
 function vProfile(p){
  if(!p){S.pid=null;return vPatients()}
- const tabs=[['overview',_('סקירה','Overview')],['timeline',_('רצף אירועים','Timeline')],['week',_('השבוע','This week')]];
+ const tabs=[['overview',_('סקירה','Overview')],...(P().daily?[['care',_('רצף טיפולי','Care thread')]]:[]),['timeline',_('רצף אירועים','Timeline')],['week',_('השבוע','This week')]];
  if(S.role==='manager')tabs.push(['account',_('קופה אישית','Personal fund')]);
  if(!tabs.some(t=>t[0]===S.ptab))S.ptab='overview';
  const mgr=S.role==='manager';
@@ -529,13 +608,15 @@ function vProfile(p){
    <div class="timeline">${p.history.map(h=>`<div class="tl"><div>${stagePill(h.stage)} <span class="muted">${fmtDate(h.date,{day:'numeric',month:'short',year:'numeric'})}</span></div>${h.note?`<div class="hint" dir="auto">${esc(h.note)}</div>`:''}<div class="hint">${_('עודכן ע״י','By')} ${staffName(h.by)}</div></div>`).join('')}</div></section>
    <div class="stack"><section class="card"><div class="card-h"><h2>${_('פרטים','Details')}</h2></div><dl class="kv"><dt>${_('תאריך הגעה','Arrival')}</dt><dd>${fmtDate(p.arrival,{day:'numeric',month:'long',year:'numeric'})}</dd><dt>${_('מדינה','Country')}</dt><dd>${esc(p.country)}</dd></dl></section>
    <section class="card"><div class="card-h"><h2>${_('נוכחות – 14 יום','Attendance – 14 days')}</h2><span class="pill ${s.rate>=90?'ok':s.rate>=75?'warn':'bad'}">${s.rate??'—'}%</span></div><dl class="kv"><dt>${_('נוכח','Present')}</dt><dd class="num">${s.p}</dd><dt>${_('איחר','Late')}</dt><dd class="num">${s.l}</dd><dt>${_('נעדר','Absent')}</dt><dd class="num">${s.a}</dd></dl></section></div></div>`;
+ }else if(S.ptab==='care'){
+  body=careThread(p);
  }else if(S.ptab==='timeline'){
   const{ev,hidden}=timeline(p);
   const f={all:_('הכל','All'),inc:_('חריגות','Incidents'),sum:_('סיכומים ותיעוד','Summaries & notes'),att:_('נוכחות','Attendance'),stage:_('שלבים','Stages')};
   const shown=S.tlf==='all'?ev:ev.filter(e=>e.t===S.tlf);
   let lastDay='';
   body=`<div class="toolbar">${Object.keys(f).filter(k=>k!=='inc'||P().incidents).map(k=>`<button class="chip ${S.tlf===k?'on':''}" data-a="tlf" data-v="${k}" aria-pressed="${S.tlf===k}">${f[k]}</button>`).join('')}
-   <span style="flex:1"></span>${!p.archived&&P().incidents?`<button class="btn sm" data-a="incident" data-v="${p.id}">${ic('flag')} ${_('דיווח חריגה','Report incident')}</button>`:''}${!p.archived&&P().daily?`<button class="btn sm primary" data-a="note" data-v="${p.id}">+ ${_('תיעוד','Note')}</button>`:''}${!p.archived&&S.role==='counselor'?`<button class="btn sm" data-a="reportExp" data-v="${p.id}">${_('דיווח הוצאה','Report an expense')}</button>`:''}</div>
+   <span style="flex:1"></span>${!p.archived&&P().incidents?`<button class="btn sm" data-a="incident" data-v="${p.id}">${ic('flag')} ${_('דיווח חריגה','Report incident')}</button>`:''}${!p.archived&&P().daily?`<button class="btn sm primary" data-a="note" data-v="${p.id}">+ ${_('תיעוד','Note')}</button>`:''}${!p.archived&&S.role==='counselor'?`<button class="btn sm" data-a="reportExp" data-v="${p.id}">${_('דיווח הוצאה','Report an expense')}</button>`:''}${P().daily?`<button class="btn sm" data-a="exportSums" data-v="${p.id}">${_('ייצוא סיכומים','Export summaries')}</button>`:''}</div>
    <section class="card"><div class="tline">${shown.map(e=>{const day=e.date!==lastDay;lastDay=e.date;return`${day?`<div class="tday">${e.date===TD?_('היום','Today'):fmtDate(e.date,{weekday:'long',day:'numeric',month:'short'})}</div>`:''}<div class="tev tev-${e.t}">${e.raw?e.html:`<div class="tsmall"><span class="mono muted">${e.time!=='00:00'?e.time:''}</span> ${e.html}</div>`}</div>`}).join('')||empty(_('אין אירועים להצגה.','Nothing to show.'))}</div>
    ${hidden?lockBox(`${hidden} ${_('סיכומים טיפוליים מוסתרים לפי ההרשאה שלך.','therapy summaries are hidden by your access level.')}`):''}</section>`;
  }else if(S.ptab==='week'){
@@ -696,7 +777,7 @@ function reviewCard(s){
  <details class="orig"><summary>${_('הנוסח המקורי (נשמר)','Original text (kept)')}</summary><div class="note-b" dir="auto">${esc(s.original)}</div></details>
  ${s.unclear&&s.unclear.length?`<div class="banner warnb"><div><b>${_('לבדיקה – לא ברור מהמקור','To check – unclear in the original')}:</b><ul>${s.unclear.map(u=>`<li dir="auto">${esc(u)}</li>`).join('')}</ul></div></div>`:''}
  <div class="f"><label for="sg">${_('כללי – על היום','General – about the day')}</label><textarea id="sg" dir="auto">${esc(s.general)}</textarea></div>
- ${s.parts.map((x,i)=>`<div class="f ppart"><label for="sp_${i}">${esc(pat(x.pid)?.name||'')}</label><textarea id="sp_${i}" data-pid="${x.pid}" dir="auto">${esc(x.text)}</textarea><button class="btn sm ghost danger" data-a="rmPart" data-v="${i}">${_('הסרה','Remove')}</button></div>`).join('')}
+ ${s.parts.map((x,i)=>`<div class="f ppart"><label for="sp_${i}">${esc(pat(x.pid)?.name||'')}</label><textarea id="sp_${i}" data-pid="${x.pid}" dir="auto">${esc(x.text)}</textarea><div class="checks sm" aria-label="${_('נושאים','Topics')}">${TOPICS.map(t=>`<label><input type="checkbox" class="ptop" data-i="${i}" value="${t.id}" ${(x.topics||[]).includes(t.id)?'checked':''}>${t[S.lang]}</label>`).join('')}</div><input class="ptask" data-i="${i}" dir="auto" placeholder="${_('משימה למטופל (לא חובה)','Task for the patient (optional)')}" value="${esc(x.task||'')}"><button class="btn sm ghost danger" data-a="rmPart" data-v="${i}">${_('הסרה','Remove')}</button></div>`).join('')}
  <div class="toolbar"><select id="addPid" aria-label="${_('הוספת מטופל','Add patient')}"><option value="">${_('+ הוספת חלק למטופל','+ Add a patient section')}</option>${act.filter(p=>!s.parts.some(x=>x.pid===p.id)).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
  ${s.unclear&&s.unclear.length?`<label class="toggle"><input type="checkbox" id="chk">${_('בדקתי את הנקודות שסומנו','I checked the flagged points')}</label>`:''}
  <div class="toolbar"><button class="btn primary" data-a="pubSum" data-v="${s.id}">${_('אישור ופרסום לצוות','Approve and publish')}</button><button class="btn" data-a="draftSum" data-v="${s.id}">${_('שמירת טיוטה','Save draft')}</button><button class="btn ghost" data-a="backSum" data-v="${s.id}">${_('חזרה לעריכת המקור','Back to the original')}</button></div></div></section>`;
@@ -704,14 +785,14 @@ function reviewCard(s){
 function publishedCard(s){
  return`<section class="card"><div class="card-h"><h2>${fmtDate(s.date,{weekday:'long',day:'numeric',month:'long'})} · ${staffName(s.author)}</h2>${s.status==='published'?`<span class="pill ok">${_('פורסם','Published')}</span>`:`<span class="pill warn">${_('טיוטה','Draft')}</span>`}</div>
  <div class="form"><div class="note-b" dir="auto">${esc(s.general)}</div>
- ${s.parts.map(x=>`<div class="ppub"><button class="link" data-a="openP" data-v="${x.pid}">${esc(pat(x.pid)?.name||'')}</button><div class="note-b" dir="auto">${esc(x.text)}</div></div>`).join('')}
- <details class="orig"><summary>${_('הנוסח המקורי','Original text')}${s.aiUsed?` · ${_('נוסח ערוך בעזרת AI ואושר ע״י הכותב/ת','edited with AI help, approved by the author')}`:''}</summary><div class="note-b" dir="auto">${esc(s.original)}</div></details></div></section>`;
+ ${s.parts.map(x=>`<div class="ppub"><button class="link" data-a="openP" data-v="${x.pid}">${esc(pat(x.pid)?.name||'')}</button>${topicChips(x.topics)}<div class="note-b" dir="auto">${esc(x.text)}</div>${x.task?`<div class="taskln">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(x.task)}</span></div>`:''}</div>`).join('')}
+ ${s.status==='published'?readBar(itemOf('sum:'+s.id)):''}<details class="orig"><summary>${_('הנוסח המקורי','Original text')}${s.aiUsed?` · ${_('נוסח ערוך בעזרת AI ואושר ע״י הכותב/ת','edited with AI help, approved by the author')}`:''}</summary><div class="note-b" dir="auto">${esc(s.original)}</div></details></div></section>`;
 }
 
 function compText(s){const c=s.comp||{};const out=[];
  const f=(k,l)=>{if(c[k]&&c[k].amt)out.push(`${l} ${money(c[k].amt)} ${nm(PER[c[k].per||'session'])}`)};
  f('individual',_('פרטני','Individual'));f('group',_('קבוצה','Group'));f('activity',_('פעילות','Activity'));
- if(c.shift)out.push(`${_('משמרת','Shift')} ${money(c.shift)}`);if(c.monthly)out.push(`${_('חודשי','Monthly')} ${money(c.monthly)}`);
+ if(c.hourly)out.push(`${_('שעה','Hour')} ${money(c.hourly)}`);if(c.shift)out.push(`${_('משמרת','Shift')} ${money(c.shift)}`);if(c.monthly)out.push(`${_('חודשי','Monthly')} ${money(c.monthly)}`);
  return out.join(' · ')||'—'}
 function vStaff(){
  const mgr=S.role==='manager';
@@ -720,17 +801,20 @@ function vStaff(){
  const st=r=>r.status==='pending'?`<span class="pill warn">${_('ממתין','Pending')}</span>`:r.status==='rejected'?`<span class="pill bad">${_('נדחה','Rejected')}</span>`:`<span class="pill done">${_('אושר','Approved')}</span>`;
  const myShifts=D.shifts.filter(s=>s.staff===me()&&s.date.slice(0,7)===TD.slice(0,7));
  let h=`<div class="page-h"><div><p class="eyebrow">${mgr?_('תעריפים, הרשאות ואישורים','Rates, access and approvals'):_('הדיווחים והבקשות שלי','My reports and requests')}</p><h1>${_('צוות','Staff')}</h1></div>
- <div class="acts">${mgr?`<button class="btn primary" data-a="staffEdit">+ ${_('איש צוות','Staff member')}</button>`:''}${S.role==='counselor'?`<button class="btn primary" data-a="shift">${_('דיווח משמרת','Report a shift')}</button>`:''}${S.role!=='therapist'?`<button class="btn" data-a="req" data-v="trip">${_('דיווח נסיעה','Log a trip')}</button><button class="btn" data-a="req" data-v="reimb">${_('בקשת החזר','Request reimbursement')}</button>`:''}${mgr?`<button class="btn" data-a="req" data-v="bonus">${_('רישום בונוס','Record bonus')}</button>`:''}</div></div>`;
+ <div class="acts">${mgr?`<button class="btn primary" data-a="staffEdit">+ ${_('איש צוות','Staff member')}</button>`:''}${S.role!=='therapist'?`<button class="btn" data-a="req" data-v="trip">${_('בקשת החזר נסיעה','Travel refund')}</button><button class="btn" data-a="req" data-v="reimb">${_('בקשת החזר','Request reimbursement')}</button>`:''}${mgr?`<button class="btn" data-a="req" data-v="bonus">${_('רישום בונוס','Record bonus')}</button>`:''}</div></div>`;
  if(mgr){
   h+=`<section class="card"><div class="card-h"><h2>${_('אנשי צוות ותעריפים','Team and rates')}</h2><span class="hint">${_('אפשר תעריף שונה לפרטני, לקבוצה ולפעילות – למפגש או לשעה – וגם למשמרת או לחודש.','Separate rates for individual, group and activity – per session or per hour – plus per shift or per month.')}</span></div><div class="tw"><table><thead><tr><th>${_('שם','Name')}</th><th>${_('תפקיד','Role')}</th><th>${_('טלפון','Phone')}</th>${SH.on?`<th>${_('חשבון מחובר','Linked account')}</th>`:''}<th>${_('תעריפים','Rates')}</th><th></th></tr></thead><tbody>
   ${D.staff.map(s=>{const lk=Object.entries(SH.links).filter(([,v])=>v===s.id).map(([u])=>u);return`<tr><td><b>${esc(nm(s.name))}</b>${s.demo?` <span class="chip">${_('דוגמה','Demo')}</span>`:''}</td><td>${ROLES[s.role][S.lang]}</td><td class="mono">${esc(s.phone||'—')}${window.RETORNO_SUPA?`<div class="s" dir="ltr">${s.username?'👤 '+esc(s.username):`<span class="muted">${_('אין שם משתמש','No username')}</span>`}</div>`:''}</td>${SH.on?`<td>${lk.length?lk.map(u=>`<span class="chip"><span data-uname="${u}">${_('מחובר','Linked')}</span> <button class="link" data-a="unlink" data-v="${u}">${_('ניתוק','Unlink')}</button></span>`).join(' '):`<span class="muted">${_('טרם התחבר','Not linked yet')}</span>`}</td>`:''}<td class="muted">${compText(s)}</td><td style="white-space:nowrap"><button class="btn sm ghost" data-a="staffEdit" data-v="${s.id}">${_('פרטים','Details')}</button>${s.role!=='manager'&&s.role!=='admissions'?` <button class="btn sm ghost" data-a="comp" data-v="${s.id}">${_('תעריפים','Rates')}</button>`:''}</td></tr>`}).join('')}</tbody></table></div>
-  <p class="hint" style="margin-top:10px">${_('שינוי תעריף חל על עבודה שתאושר מעכשיו. מפגשים שכבר אושרו שומרים את העלות שנרשמה להם.','A rate change applies to work confirmed from now on. Sessions already confirmed keep the cost recorded for them.')}</p></section>`;
+  <p class="hint" style="margin-top:10px">${_('שינוי תעריף חל על עבודה שתאושר מעכשיו. מפגשים שכבר אושרו שומרים את העלות שנרשמה להם.','A rate change applies to work confirmed from now on. Sessions already confirmed keep the cost recorded for them.')}</p></section>`+hoursReport();
  }else if(S.role==='counselor'){
+  const mh=r2(myShifts.filter(okShift).reduce((t,x)=>t+(x.hours||hoursOf(x)),0));
+  h+=clockCard()+`<section class="card"><div class="card-h"><h2>${_('המשמרות שלי החודש','My shifts this month')}</h2><span class="chip">${myShifts.filter(x=>x.status!=='open').length} · ${mh} ${_('שעות מאושרות','approved hours')}</span></div><div class="list">${myShifts.slice().sort((a,b)=>(b.date+(b.start||'')).localeCompare(a.date+(a.start||''))).map(s=>`<div class="row"><div class="grow"><div class="t">${fmtDate(s.date,{weekday:'long',day:'numeric',month:'short'})}</div><div class="s">${SHIFTS[s.kind]?SHIFTS[s.kind][S.lang]:s.kind}${s.start?' · ':''}${shiftTimes(s)}</div></div>${shStatus(s)}</div>`).join('')||empty(_('עוד לא דווחו משמרות החודש.','No shifts reported this month.'))}</div></section>`;
+ }else if(false){
   h+=`<section class="card"><div class="card-h"><h2>${_('המשמרות שלי החודש','My shifts this month')}</h2><span class="chip">${myShifts.length}</span></div><div class="list">${myShifts.slice(-8).reverse().map(s=>`<div class="row"><div class="grow"><div class="t">${fmtDate(s.date,{weekday:'long',day:'numeric',month:'short'})}</div><div class="s">${SHIFTS[s.kind]?SHIFTS[s.kind][S.lang]:s.kind}</div></div><b class="num">${money(s.rate)}</b></div>`).join('')||empty(_('עוד לא דווחו משמרות החודש.','No shifts reported this month.'))}</div></section>`;
  }
  h+=`<section class="card"><div class="card-h"><h2>${mgr?_('בקשות לאישור חודשי','Requests for monthly approval'):_('הבקשות שלי','My requests')}</h2>${mgr?`<span class="hint">${_('תשלום בפועל נרשם במסך הכספים, “הכנסות ועלויות”.','Actual payments are recorded under Finance, “Income & costs”.')}</span>`:''}</div>
  <div class="tw"><table><thead><tr><th>${_('תאריך','Date')}</th>${mgr?`<th>${_('איש צוות','Staff')}</th>`:''}<th>${_('סוג','Type')}</th><th>${_('פירוט','Details')}</th><th class="n">${_('סכום','Amount')}</th><th>${_('מצב','Status')}</th>${mgr?'<th></th>':''}</tr></thead><tbody>
- ${reqs.map(r=>`<tr><td class="mono">${fmtDate(r.date)}</td>${mgr?`<td>${staffName(r.staff)}</td>`:''}<td>${kindL[r.kind]}${D.tx.some(t=>t.reqId===r.id)?` <span class="chip">${_('מקושר להוצאה','Linked to expense')}</span>`:''}</td><td dir="auto">${esc(nm(r.desc))}${r.kind==='trip'?` <span class="muted">(${r.km} ${_('ק״מ','km')})</span>`:''}</td><td class="n">${money(reqAmount(r))}</td><td>${st(r)}</td>${mgr?`<td style="white-space:nowrap">${r.status==='pending'?`<button class="btn sm primary" data-a="approve" data-v="${r.id}">${_('אישור','Approve')}</button> <button class="btn sm ghost danger" data-a="reject" data-v="${r.id}">${_('דחייה','Reject')}</button>`:''}</td>`:''}</tr>`).join('')||`<tr><td colspan="7">${empty(_('אין בקשות.','No requests.'))}</td></tr>`}</tbody></table></div></section>`;
+ ${reqs.map(r=>`<tr><td class="mono">${fmtDate(r.date)}</td>${mgr?`<td>${staffName(r.staff)}</td>`:''}<td>${kindL[r.kind]}${D.tx.some(t=>t.reqId===r.id)?` <span class="chip">${_('מקושר להוצאה','Linked to expense')}</span>`:''}</td><td dir="auto">${esc(r.dest||nm(r.desc))}${r.purpose?`<div class="s">${esc(r.purpose)}</div>`:''}${r.kind==='trip'&&r.km?` <span class="muted">(${r.km} ${_('ק״מ','km')})</span>`:''}</td><td class="n">${r.kind==='trip'&&r.status==='pending'&&!(r.amount>0)&&!r.km?`<span class="muted">${_('ייקבע ע״י המנהל','Set by the manager')}</span>`:money(reqAmount(r))}</td><td>${st(r)}</td>${mgr?`<td style="white-space:nowrap">${r.status==='pending'?`<button class="btn sm primary" data-a="approve" data-v="${r.id}">${_('אישור','Approve')}</button> <button class="btn sm ghost danger" data-a="reject" data-v="${r.id}">${_('דחייה','Reject')}</button>`:''}</td>`:''}</tr>`).join('')||`<tr><td colspan="7">${empty(_('אין בקשות.','No requests.'))}</td></tr>`}</tbody></table></div></section>`;
  return h;
 }
 
@@ -834,7 +918,7 @@ const reportView=x=>({id:x.id,kind:'exp',report:true,date:x.date,method:x.method
 const MONTHLY=['log','overrides','roster'];
 function stable(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v))return'['+v.map(stable).join(',')+']';return'{'+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}'}
 const clone=o=>JSON.parse(JSON.stringify(o));
-function emptyD(){return{roster:{},tasks:[],settings:{cigPrice:38,kmRate:1.2,fx:3.7,rules:[],cancel:{patient:100,staff:0,other:0}},staff:[],patients:[],notes:[],incidents:[],summaries:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},overrides:{},log:{},leads:[],requests:[],shifts:[],payments:[],tx:[],cigSettlements:[],messages:[],reads:[]}}
+function emptyD(){return{roster:{},tasks:[],settings:{cigPrice:38,kmRate:1.2,fx:3.7,rules:[],cancel:{patient:100,staff:0,other:0},remind:{day:['13:00','16:00'],evening:['22:00','08:00']}},staff:[],patients:[],notes:[],incidents:[],summaries:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},overrides:{},log:{},leads:[],requests:[],shifts:[],payments:[],tx:[],cigSettlements:[],messages:[],reads:[]}}
 function toDocs(d){
  const o={};
  o['meta/settings']=clone(d.settings);
@@ -1040,6 +1124,46 @@ function shiftCard(){
   ${!iAmOn&&mineNext?`<div class="row"><div class="grow"><div class="s">${_('המשמרת הבאה שלך','Your next shift')}</div><div class="t">${shiftWhen(mineNext)}</div></div></div>`:''}</div></section>`;
 }
 
+/* ---------- work hours: clock in / out, hours, hourly pay ---------- */
+const hm=t=>{const[a,b]=String(t||'0:0').split(':').map(Number);return(a||0)*60+(b||0)};
+function hoursOf(s){if(!s.start||!s.end)return 0;let m=hm(s.end)-hm(s.start);if(m<=0)m+=1440;return r2(m/60)}
+const kindOfStart=t=>(t>='05:00'&&t<'15:00')?'day':'evening';
+function shiftDefaultCost(s){const c=(staffBy(s.staff)||{}).comp||{};const h=s.hours||hoursOf(s);if(c.hourly&&h)return r2(h*c.hourly);return c.shift||0}
+const myOpenShift=()=>D.shifts.find(s=>s.staff===me()&&s.status==='open');
+const shiftTimes=s=>s.start?`<bdi dir="ltr">${s.start}–${s.end||'…'}</bdi>${s.hours?` · ${s.hours} ${_('שעות','h')}`:''}`:'';
+const shStatus=s=>s.status==='open'?`<span class="pill ok">${_('במשמרת','On shift')}</span>`:s.status==='pending'?`<span class="pill warn">${_('ממתין לאישור','Awaiting approval')}</span>`:s.status==='rejected'?`<span class="pill bad">${_('נדחה','Rejected')}</span>`:`<span class="pill done">${_('אושר','Approved')}</span>`;
+function wroteSummary(staff,date){const ds=[date,add(date,1)];return D.summaries.some(s=>s.author===staff&&ds.includes(s.date))||D.notes.some(n=>n.author===staff&&n.kind==='daily'&&n.source!=='whatsapp'&&ds.includes(n.date))}
+function clockCard(){
+ if(S.role!=='counselor')return'';
+ const o=myOpenShift();
+ const due=o&&!wroteSummary(me(),o.date);
+ return`<section class="card"><div class="card-h"><h2>${_('נוכחות במשמרת','Shift attendance')}</h2>${o?`<span class="pill ok">${_('במשמרת','On shift')}</span>`:''}</div>
+ ${o?`<p>${_('נכנסת למשמרת ב־','You clocked in at ')}<b dir="ltr">${o.start}</b> · ${fmtDate(o.date,{weekday:'short',day:'numeric',month:'short'})}</p>${due?`<div class="banner warnb"><b>${_('עוד לא כתבת סיכום למשמרת הזו.','You have not written a summary for this shift yet.')}</b><span style="flex:1"></span><button class="btn sm" data-a="nav" data-v="summary">${_('לכתיבה','Write')}</button></div>`:''}<div class="toolbar"><button class="btn primary" data-a="clockOut">${_('סיום משמרת','Clock out')}</button></div>`
+ :`<div class="toolbar"><button class="btn primary" data-a="clockIn">${_('הגעתי למשמרת','Clock in')}</button><button class="btn" data-a="shift">${_('דיווח ידני','Manual entry')}</button></div><p class="hint">${_('לוחצים כשמגיעים וכשמסיימים. השעות מחושבות לבד ונשלחות לאישור המנהל.','Tap when you arrive and when you leave. Hours are counted for you and sent to the manager for approval.')}</p>`}</section>`;
+}
+function hoursRows(ym){
+ const ppl=D.staff.filter(s=>s.role==='counselor'||D.shifts.some(x=>x.staff===s.id&&x.date.slice(0,7)===ym));
+ return ppl.map(s=>{const sh=D.shifts.filter(x=>x.staff===s.id&&x.date.slice(0,7)===ym&&okShift(x));
+  const hrs=r2(sh.reduce((t,x)=>t+(x.hours||hoursOf(x)),0)),cost=r2(sh.reduce((t,x)=>t+(x.rate||0),0));
+  const trips=r2(D.requests.filter(r=>r.staff===s.id&&r.status==='approved'&&r.date.slice(0,7)===ym&&(r.kind==='trip'||r.kind==='reimb')).reduce((t,r)=>t+reqAmount(r),0));
+  const pend=D.shifts.filter(x=>x.staff===s.id&&x.date.slice(0,7)===ym&&(x.status==='pending'||x.status==='open')).length;
+  const c=s.comp||{};
+  return{s,n:sh.length,hrs,rateTxt:c.hourly?`${money(c.hourly)} ${_('לשעה','/ hour')}`:c.shift?`${money(c.shift)} ${_('למשמרת','/ shift')}`:'—',cost,trips,total:r2(cost+trips),pend}});
+}
+function hoursReport(){
+ const ym=S.month;const rows=hoursRows(ym);
+ const list=D.shifts.filter(x=>x.date.slice(0,7)===ym).sort((a,b)=>(b.date+(b.start||'')).localeCompare(a.date+(a.start||'')));
+ const T=rows.reduce((t,r)=>({n:t.n+r.n,hrs:r2(t.hrs+r.hrs),cost:r2(t.cost+r.cost),trips:r2(t.trips+r.trips),total:r2(t.total+r.total)}),{n:0,hrs:0,cost:0,trips:0,total:0});
+ return`<section class="card"><div class="card-h"><h2>${_('שעות ועלות מדריכים – דוח חודשי','Counselor hours and cost – monthly')}</h2>${monthNav()}</div>
+ <div class="tw"><table><thead><tr><th>${_('מדריך','Counselor')}</th><th class="n">${_('משמרות','Shifts')}</th><th class="n">${_('שעות','Hours')}</th><th>${_('תעריף','Rate')}</th><th class="n">${_('עלות משמרות','Shift cost')}</th><th class="n">${_('נסיעות והחזרים','Travel & refunds')}</th><th class="n">${_('סה״כ לחודש','Month total')}</th></tr></thead><tbody>
+ ${rows.map(r=>`<tr><td><b>${esc(nm(r.s.name))}</b>${r.pend?` <span class="pill warn">${r.pend} ${_('ממתינים','pending')}</span>`:''}</td><td class="n">${r.n}</td><td class="n">${r.hrs}</td><td class="muted">${r.rateTxt}</td><td class="n">${money(r.cost)}</td><td class="n">${money(r.trips)}</td><td class="n"><b>${money(r.total)}</b></td></tr>`).join('')||`<tr><td colspan="7">${empty(_('אין מדריכים.','No counselors.'))}</td></tr>`}
+ ${rows.length>1?`<tr class="trh"><td><b>${_('סה״כ','Total')}</b></td><td class="n">${T.n}</td><td class="n">${T.hrs}</td><td></td><td class="n">${money(T.cost)}</td><td class="n">${money(T.trips)}</td><td class="n"><b>${money(T.total)}</b></td></tr>`:''}</tbody></table></div>
+ <p class="hint" style="margin-top:8px">${_('נספרים רק דיווחים שאישרת. התעריף נקבע בכפתור “תעריפים” של כל מדריך; לשינוי עלות של דיווח מסוים – “עריכה” ברשימה למטה.','Only reports you approved are counted. Set the rate with each counselor’s “Rates” button; to change one report’s cost use “Edit” below.')}</p></section>
+ <section class="card"><div class="card-h"><h2>${_('דיווחי שעות החודש','Hour reports this month')}</h2><button class="btn sm" data-a="shEdit">+ ${_('דיווח','Report')}</button></div>
+ <div class="tw"><table><thead><tr><th>${_('תאריך','Date')}</th><th>${_('מדריך','Counselor')}</th><th>${_('משמרת','Shift')}</th><th>${_('שעות','Hours')}</th><th class="n">${_('עלות','Cost')}</th><th>${_('מצב','Status')}</th><th></th></tr></thead><tbody>
+ ${list.map(x=>`<tr><td class="mono">${fmtDate(x.date,{weekday:'short',day:'numeric',month:'short'})}</td><td>${esc(staffName(x.staff))}</td><td>${SHIFTS[x.kind]?SHIFTS[x.kind][S.lang]:''}</td><td>${shiftTimes(x)||'—'}</td><td class="n">${x.status==='approved'||!x.status?money(x.rate||0):'—'}</td><td>${shStatus(x)}${x.editedBy?` <span class="chip">${_('תוקן ע״י המנהל','Corrected by manager')}</span>`:''}</td><td><button class="btn sm ghost" data-a="shEdit" data-v="${x.id}">${_('עריכה','Edit')}</button></td></tr>`).join('')||`<tr><td colspan="7">${empty(_('אין דיווחים החודש.','No reports this month.'))}</td></tr>`}</tbody></table></div></section>`;
+}
+
 /* ---------- shared task board: open tasks carry over to whoever is on the next shift ---------- */
 function vTasks(){
  const now=shiftAt(TD,NOWT);
@@ -1089,9 +1213,9 @@ function vApprovals(){
  <section class="card"><div class="card-h"><h2>${_('תנועות כספיות','Money entries')}</h2><span class="hint">${_('בסיווג אפשר לתקן קטגוריה, אמצעי תשלום ועל חשבון מי ההוצאה.','When classifying you can fix the category, payment method and who bears the cost.')}</span></div>
   ${p.tx.length?p.tx.map(txCard).join(''):empty(_('אין תנועות שממתינות לאישור.','No money entries waiting.'))}</section>
  <div class="grid2 even"><section class="card"><div class="card-h"><h2>${_('משמרות','Shifts')}</h2></div>
-  ${p.sh.length?p.sh.map(s=>`<div class="appr"><div class="grow"><div class="t">${staffName(s.staff)}</div><div class="s">${fmtDate(s.date,{weekday:'short',day:'numeric',month:'short'})} · ${SHIFTS[s.kind]?SHIFTS[s.kind][S.lang]:s.kind}</div></div><input class="amt" id="sh_${s.id}" type="number" inputmode="decimal" value="${s.rate||staffBy(s.staff)?.comp?.shift||''}" aria-label="${_('סכום','Amount')}"><div class="la"><button class="btn sm primary" data-a="apShift" data-v="${s.id}">${_('אישור','Approve')}</button><button class="btn sm ghost danger" data-a="rjShift" data-v="${s.id}">${_('דחייה','Reject')}</button></div></div>`).join(''):empty(_('אין משמרות שממתינות.','No shifts waiting.'))}</section>
+  ${p.sh.length?p.sh.map(s=>`<div class="appr"><div class="grow"><div class="t">${staffName(s.staff)}</div><div class="s">${fmtDate(s.date,{weekday:'short',day:'numeric',month:'short'})} · ${SHIFTS[s.kind]?SHIFTS[s.kind][S.lang]:s.kind}${s.start?' · ':''}${shiftTimes(s)}</div></div><input class="amt" id="sh_${s.id}" type="number" inputmode="decimal" value="${s.rate||shiftDefaultCost(s)||''}" aria-label="${_('סכום','Amount')}"><button class="btn sm ghost" data-a="shEdit" data-v="${s.id}">${_('תיקון','Fix')}</button><div class="la"><button class="btn sm primary" data-a="apShift" data-v="${s.id}">${_('אישור','Approve')}</button><button class="btn sm ghost danger" data-a="rjShift" data-v="${s.id}">${_('דחייה','Reject')}</button></div></div>`).join(''):empty(_('אין משמרות שממתינות.','No shifts waiting.'))}</section>
  <section class="card"><div class="card-h"><h2>${_('נסיעות והחזרים','Trips & reimbursements')}</h2></div>
-  ${p.rq.length?p.rq.map(r=>`<div class="appr"><div class="grow"><div class="t">${staffName(r.staff)} · <span dir="auto">${esc(nm(r.desc))}</span></div><div class="s">${fmtDate(r.date)}${r.kind==='trip'?` · ${r.km} ${_('ק״מ','km')}`:''}</div></div><b class="num">${money(reqAmount(r))}</b><div class="la"><button class="btn sm primary" data-a="approve" data-v="${r.id}">${_('אישור','Approve')}</button><button class="btn sm ghost danger" data-a="reject" data-v="${r.id}">${_('דחייה','Reject')}</button></div></div>`).join(''):empty(_('אין בקשות שממתינות.','No requests waiting.'))}</section></div>`;
+  ${p.rq.length?p.rq.map(r=>`<div class="appr"><div class="grow"><div class="t">${staffName(r.staff)} · <span dir="auto">${esc(r.dest||nm(r.desc))}</span>${r.kind==='trip'?` <span class="chip">${_('נסיעה','Trip')}</span>`:''}</div>${r.purpose?`<div class="s" dir="auto">${_('מטרה','Purpose')}: ${esc(r.purpose)}</div>`:''}<div class="s">${fmtDate(r.date)}${r.kind==='trip'&&r.km?` · ${r.km} ${_('ק״מ','km')}`:''}</div></div>${r.kind==='trip'?`<input class="amt" id="rq_${r.id}" type="number" inputmode="decimal" placeholder="₪" value="${r.amount||''}" aria-label="${_('סכום להחזר','Refund amount')}">`:`<b class="num">${money(reqAmount(r))}</b>`}<div class="la"><button class="btn sm primary" data-a="approve" data-v="${r.id}">${_('אישור','Approve')}</button><button class="btn sm ghost danger" data-a="reject" data-v="${r.id}">${_('דחייה','Reject')}</button></div></div>`).join(''):empty(_('אין בקשות שממתינות.','No requests waiting.'))}</section></div>`;
 }
 
 /* ---------- manager sign-in (prototype: checked in this browser; the full version checks it on the server) ---------- */
@@ -1158,6 +1282,8 @@ function unreadBanner(){const r=readMap();const u=myMsgs().filter(m=>!r[m.id]);i
 // push notifications: only when the app runs on its own server (see the supabase provider); elsewhere these are no-ops
 function notify(p){try{if(window.RETORNO_NOTIFY)window.RETORNO_NOTIFY(p)}catch(e){}}
 function notifyMgr(title,body){notify({audience:'managers',title,body,url:'#approvals'})}
+// a new summary: tell the managers. The notification shows only the type and the writer, never the clinical text
+function sumNotify(title,key){if(S.role==='manager')return;notify({audience:'managers',title,body:`${staffName(me())} · ${fmtDate(TD)}`,url:'#dashboard',tag:'sum-'+key})}
 function notifBtn(){return window.RETORNO_PUSH?`<div class="acts">${window.RETORNO_PUSH.state()==='on'?`<span class="chip on">${_('התראות פעילות בטלפון הזה','Notifications are on for this device')}</span>`:`<button class="btn" data-a="pushOn">${_('הפעלת התראות בטלפון הזה','Turn on notifications here')}</button>`}</div>`:''}
 
 /* ---------- shell ---------- */
@@ -1177,7 +1303,7 @@ function render(){
  const root=document.documentElement;root.lang=S.lang;root.dir=S.lang==='he'?'rtl':'ltr';
  if(!P().views.includes(S.view))S.view=P().views[0];
  const locked=S.role==='manager'&&!adminIn();const pc=S.role==='manager'&&!locked?pendingAll().n:0;
- const nav=locked?'':P().views.map(v=>`<button class="nav-i ${S.view===v?'on':''}" data-a="nav" data-v="${v}" ${S.view===v?'aria-current="page"':''}>${ic(VIEWS[v].i)}<span>${VIEWS[v][S.lang]}</span>${v==='approvals'&&pc?`<i class="badge">${pc}</i>`:''}${v==='messages'&&!locked&&unreadN()?`<i class="badge">${unreadN()}</i>`:''}</button>`).join('');
+ const nav=locked?'':P().views.map(v=>`<button class="nav-i ${S.view===v?'on':''}" data-a="nav" data-v="${v}" ${S.view===v?'aria-current="page"':''}>${ic(VIEWS[v].i)}<span>${VIEWS[v][S.lang]}</span>${v==='approvals'&&pc?`<i class="badge">${pc}</i>`:''}${v==='messages'&&!locked&&unreadN()?`<i class="badge">${unreadN()}</i>`:''}${v==='dashboard'&&!locked&&P().daily&&unreadSums().length?`<i class="badge">${unreadSums().length}</i>`:''}</button>`).join('');
  const body=locked?vLogin():{dashboard:vDash,messages:vMessages,approvals:vApprovals,tasks:vTasks,roster:vRoster,schedule:vSched,patients:vPatients,summary:vSummary,finance:vFin,staff:vStaff,leads:vLeads,reports:vReports}[S.view]();
  const role=SH.on?(sharedRole()==='manager'&&adminIn()?`<label class="role"><span class="sr">${_('תצוגה בתור','Preview as')}</span><select id="roleSel" data-c="role">${['manager','counselor','therapist','admissions'].map(r=>`<option value="${r}" ${S.role===r?'selected':''}>${r==='manager'?staffName(myStaffId()):_('תצוגה כ','Preview as ')+ROLES[r][S.lang]} · ${ROLES[r][S.lang]}</option>`).join('')}</select></label>`:`<span class="chip whoami">${esc(staffName(myStaffId()))} · ${ROLES[sharedRole()][S.lang]}</span>`)
   :`<label class="role"><span class="sr">${_('צפייה בתור','View as')}</span><select id="roleSel" data-c="role">${Object.keys(AS).map(r=>`<option value="${r}" ${S.role===r?'selected':''}>${staffName(AS[r])} · ${ROLES[r][S.lang]}</option>`).join('')}</select></label>`;
@@ -1352,7 +1478,7 @@ const A={
      if(S.role!=='manager'&&(rate>0||staffBy(x.staff)?.role==='therapist')){rec.costStatus='pending';rec.suggest=rate;rec.cost=0;rec.reportedBy=me()}else rec.costStatus='approved'}
     D.log[x.key]=rec;
     const s=val('sum');
-    if(ind&&s){if(linked){linked.text=s;linked.lang=isHe(s)?'he':'en';linked.tr=null}else D.notes.push({id:uid(),pid:x.patients[0],date:x.date,time:x.end,author:me(),kind:'therapy',lang:isHe(s)?'he':'en',text:s,tr:null,followup:false,resolved:false,session:x.key})}
+    if(ind&&s){if(linked){linked.text=s;linked.lang=isHe(s)?'he':'en';linked.tr=null}else{const nn={id:uid(),pid:x.patients[0],date:x.date,time:x.end,at:new Date().toISOString(),author:me(),kind:'therapy',lang:isHe(s)?'he':'en',text:s,tr:null,followup:false,resolved:false,session:x.key};D.notes.push(nn);sumNotify(_('סיכום טיפולי חדש','New therapy summary'),'note:'+nn.id)}}
     return _('נשמר וסומן כבוצע','Saved and marked done')},_('שמירה וסימון כבוצע','Save and mark done'));
   $('#allp')&&($('#allp').onclick=()=>document.querySelectorAll('.seg input[value=p]').forEach(i=>i.checked=true));return'keep'},
  cancel:v=>{const x=findInst(v);const rs=[_('המטפל/ת לא זמין/ה','Therapist unavailable'),_('מטופל/ת לא זמין/ה','Patient unavailable'),_('מזג אוויר','Weather'),_('יציאה לתור רפואי','Medical appointment')];
@@ -1396,9 +1522,22 @@ const A={
    ()=>{const w=val('iw');if(!need(w&&val('ip'),_('תארו מה קרה','Describe what happened')))return'stay';
     D.incidents.push({id:uid(),pid:val('ip'),date:val('idt')||TD,time:val('itm'),author:me(),lang:isHe(w)?'he':'en',what:w,response:val('ir'),decidedBy:val('ib'),followup:$('#if').checked,resolved:false,tr:null});
     return _('החריגה דווחה ונכנסה לתיק','Incident reported and added to the file')},_('שליחת דיווח','Submit report'));return'keep'},
- note:v=>{const kinds=S.role==='manager'?[['daily',_('תיעוד יומי','Daily note')],['therapy',_('סיכום טיפולי','Therapy summary')]]:S.role==='therapist'?[['therapy',_('סיכום טיפולי','Therapy summary')],['daily',_('תיעוד יומי','Daily note')]]:[['daily',_('תיעוד יומי','Daily note')]];
-  modal(`${_('תיעוד','Note')} · ${pat(v).name}`,`<div class="form">${sel('nk',_('סוג','Type'),kinds,kinds[0][0])}${area('nt',_('תוכן – בעברית או באנגלית','Text – Hebrew or English'))}<label class="toggle"><input type="checkbox" id="nf">${_('דורש מעקב','Needs follow-up')}</label></div>`,
-   ()=>{const t=val('nt');if(!need(t,_('כתבו תוכן','Write the note first')))return'stay';D.notes.push({id:uid(),pid:v,date:TD,time:NOWT,author:me(),kind:val('nk'),lang:isHe(t)?'he':'en',text:t,tr:null,followup:$('#nf').checked,resolved:false});return _('התיעוד נשמר','Note saved')});return'keep'},
+ note:v=>{const[pid,rk]=String(v).split('|');const p=pat(pid);if(!p)return'keep';const kinds=S.role==='manager'?[['daily',_('תיעוד יומי','Daily note')],['therapy',_('סיכום טיפולי','Therapy summary')]]:S.role==='therapist'?[['therapy',_('סיכום טיפולי','Therapy summary')],['daily',_('תיעוד יומי','Daily note')]]:[['daily',_('תיעוד יומי','Daily note')]];
+  const prev=careItems(p,false).slice(0,12);
+  modal(`${_('תיעוד','Note')} · ${p.name}`,`<div class="form">${sel('nk',_('סוג','Type'),kinds,kinds[0][0])}
+   ${prev.length?sel('nrep',_('בהמשך ל (לא חובה)','Follows (optional)'),[['',_('— רשומה חדשה —','— New entry —')],...prev.map(i=>[i.key,`${fmtDate(i.date)} · ${i.type} · ${staffName(i.author)} – ${trim(i.text||'',50)}`])],rk||''):''}
+   ${area('nt',_('תוכן – בעברית או באנגלית','Text – Hebrew or English'))}
+   <div class="f"><span class="lab">${_('נושאים (לא חובה)','Topics (optional)')}</span><div class="checks sm">${TOPICS.map(t=>`<label><input type="checkbox" class="ntp" value="${t.id}">${t[S.lang]}</label>`).join('')}</div></div>
+   ${txt('nta',_('משימה שניתנה למטופל (לא חובה)','Task given to the patient (optional)'))}
+   <label class="toggle"><input type="checkbox" id="nf">${_('דורש מעקב','Needs follow-up')}</label></div>`,
+   ()=>{const t=val('nt');if(!need(t,_('כתבו תוכן','Write the note first')))return'stay';const k=val('nk');
+    const n={id:uid(),pid,date:TD,time:NOWT,at:new Date().toISOString(),author:me(),kind:k,lang:isHe(t)?'he':'en',text:t,tr:null,followup:$('#nf').checked,resolved:false,topics:[...document.querySelectorAll('.ntp:checked')].map(c=>c.value),task:val('nta')||'',taskDone:false,reply:val('nrep')||''};
+    D.notes.push(n);sumNotify(n.kind==='therapy'?_('סיכום טיפולי חדש','New therapy summary'):_('תיעוד יומי חדש','New daily note'),'note:'+n.id);return _('התיעוד נשמר','Note saved')});return'keep'},
+ sumRead:v=>{markRead([v]);toast(_('סומן כנקרא','Marked as read'))},
+ sumOpen:v=>{const[k,id]=v.split(':');if(k==='sum'){S.view='summary';S.sumId=id}else{const n=D.notes.find(x=>x.id===id);if(n){S.view='patients';S.pid=n.pid;S.ptab='care'}}render();setTimeout(()=>{const el=document.getElementById('c_'+v.replace(':','_'));if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'})},50)},
+ taskDone:v=>{const n=D.notes.find(x=>x.id===v);if(!n)return;n.taskDone=true;n.taskDoneBy=me();n.taskDoneAt=TD;save();toast(_('המשימה סומנה כבוצעה','Task marked done'))},
+ ctop:v=>{S.ctop=v||''},
+ exportSums:v=>{exportSums(v);return'keep'},
  stage:v=>{const p=pat(v);modal(_('שינוי שלב','Change stage'),`<div class="form">${sel('ns',_('שלב חדש','New stage'),STAGES.map(s=>[s.id,s[S.lang]]),p.stage)}${txt('nn',_('הערה (לא חובה)','Note (optional)'))}</div>`,
   ()=>{const s=val('ns');if(s===p.stage){toast(_('זה השלב הנוכחי','That is the current stage'));return'stay'}p.stage=s;p.history.push({stage:s,date:TD,by:me(),note:val('nn')});return _('השלב עודכן','Stage updated')});return'keep'},
  inRetorno:()=>{modal(_('קבלת מזומן מרטורנו','Cash received from Retorno'),`<div class="form">${num('ya','₪')}${txt('yd',_('פירוט','Details'),_('מזומן מרטורנו','Cash from Retorno'))}<p class="hint">${_('מתווסף למזומן בקופה ולכספי רטורנו.','Adds to cash in hand and to Retorno funds.')}</p></div>`,
@@ -1427,12 +1566,18 @@ const A={
     if(r){D.tx.push(txExp(TD,'cash',r,_('הוחזר בשחרור','Returned at discharge'),[{to:PK(v),amount:r}],{kind:'refund',dischargeOf:v}));PS=null}
     const rest=r2(b-r);if(rest>0)D.tx.push(txMoveBetween(TD,PK(v),'program',rest,_('יתרה לקרן התוכנית','Balance to program fund'),'transfer',{dischargeOf:v}));
     p.archived=true;p.discharged=TD;S.pid=null;return _('המטופל/ת שוחרר/ה והועבר/ה לארכיון','Patient discharged and archived')},_('אישור שחרור','Confirm discharge'));return'keep'},
- req:v=>{const t={trip:_('דיווח נסיעה ברכב פרטי','Private-car trip'),reimb:_('בקשת החזר הוצאה','Reimbursement request'),bonus:_('רישום בונוס שהובטח','Record a promised bonus')}[v];
-  modal(t,`<div class="form">${S.role==='manager'?sel('rs',_('איש צוות','Staff member'),D.staff.filter(s=>s.role!=='manager').map(s=>[s.id,nm(s.name)]),'omer'):''}
-   ${v==='trip'?num('rk',_('קילומטרים','Kilometres'))+`<p class="hint">${_('תעריף','Rate')}: ${money(D.settings.kmRate)} ${_('לק״מ','per km')}</p>`:num('ra','₪')}${txt('rd',_('פירוט','Details'))}</div>`,
-   ()=>{const km=+val('rk'),a=+val('ra');if(!need(v==='trip'?km>0:a>0,_('הזינו סכום','Enter an amount')))return'stay';
-    D.requests.push({id:uid(),staff:S.role==='manager'?val('rs'):me(),kind:v,date:TD,desc:val('rd')||t,km:v==='trip'?km:0,amount:v==='trip'?0:a,status:v==='bonus'?'approved':'pending'});if(v!=='bonus'&&S.role!=='manager')notifyMgr(_('בקשה ממתינה לאישור','A request needs approval'),`${staffName(me())}: ${val('rd')||t} · ${money(v==='trip'?Math.round(km*D.settings.kmRate):a)}`);return _('נשלח לאישור','Sent for approval')});return'keep'},
- approve:v=>{D.requests.find(r=>r.id===v).status='approved';save();toast(_('אושר','Approved'))},
+ req:v=>{const t={trip:_('בקשת החזר נסיעה','Travel refund request'),reimb:_('בקשת החזר הוצאה','Reimbursement request'),bonus:_('רישום בונוס שהובטח','Record a promised bonus')}[v];const mgr=S.role==='manager';
+  const body=v==='trip'?`${mgr?sel('rs',_('איש צוות','Staff member'),D.staff.filter(s=>s.role!=='manager').map(s=>[s.id,nm(s.name)]),(D.staff.find(s=>s.role==='counselor')||{}).id):''}${fld('rdt',_('תאריך הנסיעה','Trip date'),`<input id="rdt" type="date" value="${TD}">`)}${txt('rto',_('לאן נסעת','Where to'))}${area('rp',_('מטרת הנסיעה','Purpose of the trip'))}${mgr?num('ra',_('סכום להחזר ₪','Refund amount ₪')):`<p class="hint">${_('אין צורך לכתוב סכום – המנהל יקבע את סכום ההחזר ויאשר.','No need for an amount – the manager sets the refund and approves it.')}</p>`}`
+   :`${mgr?sel('rs',_('איש צוות','Staff member'),D.staff.filter(s=>s.role!=='manager').map(s=>[s.id,nm(s.name)]),(D.staff.find(s=>s.role==='counselor')||{}).id):''}${num('ra','₪')}${txt('rd',_('פירוט','Details'))}`;
+  modal(t,`<div class="form">${body}</div>`,
+   ()=>{if(v==='trip'){const to=val('rto'),pu=val('rp'),a=mgr?+val('ra'):0;if(!need(to&&pu,_('כתבו לאן נסעת ומה הייתה המטרה','Write where you went and why')))return'stay';if(mgr&&!need(a>0,_('הזינו סכום','Enter an amount')))return'stay';
+     const r={id:uid(),staff:mgr?val('rs'):me(),kind:'trip',date:val('rdt')||TD,dest:to,purpose:pu,desc:`${to} – ${pu}`,km:0,amount:mgr?r2(a):0,status:mgr?'approved':'pending'};D.requests.push(r);
+     if(!mgr)notifyMgr(_('בקשת החזר נסיעה','Travel refund request'),`${staffName(me())}: ${to}`);return mgr?_('ההחזר נרשם','Refund recorded'):_('נשלח למנהל – הוא יקבע את הסכום','Sent to the manager, who sets the amount')}
+    const a=+val('ra');if(!need(a>0,_('הזינו סכום','Enter an amount')))return'stay';
+    D.requests.push({id:uid(),staff:mgr?val('rs'):me(),kind:v,date:TD,desc:val('rd')||t,km:0,amount:a,status:v==='bonus'?'approved':'pending'});if(v!=='bonus'&&!mgr)notifyMgr(_('בקשה ממתינה לאישור','A request needs approval'),`${staffName(me())}: ${val('rd')||t} · ${money(a)}`);return _('נשלח לאישור','Sent for approval')});return'keep'},
+ approve:v=>{const r=D.requests.find(x=>x.id===v);if(!r)return;const el=$('#rq_'+v);
+  if(r.kind==='trip'&&!(r.amount>0)&&!r.km&&!(el&&+el.value>0)){modal(_('אישור החזר נסיעה','Approve travel refund'),`<div class="form"><p><b>${esc(staffName(r.staff))}</b> · ${fmtDate(r.date)}</p><p dir="auto">${_('לאן','Where')}: ${esc(r.dest||r.desc)}</p>${r.purpose?`<p dir="auto">${_('מטרה','Purpose')}: ${esc(r.purpose)}</p>`:''}${num('rqa',_('סכום להחזר ₪','Refund amount ₪'))}</div>`,()=>{const a=+val('rqa');if(!need(a>0,_('הזינו סכום','Enter an amount')))return'stay';r.amount=r2(a);r.status='approved';r.approvedBy=me();return _('ההחזר אושר','Refund approved')},_('אישור','Approve'));return}
+  if(el&&+el.value>0)r.amount=r2(+el.value);r.status='approved';r.approvedBy=me();save();toast(_('אושר','Approved'))},
  reject:v=>{D.requests.find(r=>r.id===v).status='rejected';save()},
  lmove:v=>{const[id,dir]=v.split('|');const l=D.leads.find(l=>l.id===id);const i=LEADST.findIndex(s=>s.id===l.status);l.status=LEADST[Math.max(0,Math.min(LEADST.length-1,i+ +dir))].id;save()},
  admit:v=>{const l=D.leads.find(l=>l.id===v);
@@ -1466,12 +1611,28 @@ const A={
    <label class="toggle"><input type="checkbox" id="cdel">${_('מחיקת הרשומה','Delete this entry')}</label></div>`,
   ()=>{if($('#cdel').checked){D.tx=D.tx.filter(t=>t.id!==x.id);return _('נמחק','Deleted')}const nn=Math.round(+val('cn')),uu=+val('cu');if(!need(nn>0&&uu>0,_('בדקו כמות ומחיר','Check quantity and price')))return'stay';
    const t=cigTx(x.date,x.pid,nn,r2(uu),document.querySelector('input[name=cgb]:checked').value,x.id);t.settled=x.settled;t.status=x.status;t.by=x.by;D.tx[D.tx.indexOf(x)]=t;return _('עודכן','Updated')});return'keep'},
- shift:()=>{const st=staffBy(me());const rate=(st.comp&&st.comp.shift)||0;
-  modal(_('דיווח משמרת','Report a shift'),`<div class="form"><div class="fr">${fld('sdt',_('תאריך','Date'),`<input id="sdt" type="date" value="${TD}">`)}${sel('skd',_('משמרת','Shift'),[['day',shiftLbl('day')],['evening',shiftLbl('evening')]],shiftAt(TD,NOWT).kind)}</div><p class="hint">${_('תעריף משמרת','Shift rate')}: ${money(rate)}. ${_('העלות נרשמת לחודש מיד עם הדיווח.','The cost is added to the month as soon as you report.')}</p></div>`,
-  ()=>{const dt=val('sdt'),k=val('skd');if(D.shifts.some(s=>s.staff===me()&&s.date===dt&&s.kind===k)){toast(_('המשמרת הזו כבר דווחה','This shift was already reported'));return'stay'}D.shifts.push({id:uid(),staff:me(),date:dt,kind:k,rate,status:S.role==='manager'?'approved':'pending'});if(S.role!=='manager')notifyMgr(_('משמרת ממתינה לאישור','A shift needs approval'),`${staffName(me())} · ${shiftLbl(k)} · ${fmtDate(dt)}`);return S.role==='manager'?_('המשמרת נרשמה','Shift recorded'):_('המשמרת נשלחה לאישור מנהל','Shift sent for manager approval')},_('דיווח','Report'));return'keep'},
+ shift:()=>{
+  modal(_('דיווח שעות ידני','Manual hours entry'),`<div class="form">${fld('sdt',_('תאריך המשמרת','Shift date'),`<input id="sdt" type="date" value="${TD}">`)}<div class="fr">${fld('sst',_('שעת הגעה','Start'),`<input id="sst" type="time" value="09:00">`)}${fld('sen',_('שעת סיום','End'),`<input id="sen" type="time" value="17:00">`)}</div><p class="hint">${_('אם הסיום אחרי חצות – זה נספר אוטומטית כהמשך של אותה משמרת. הדיווח נשלח לאישור המנהל.','If you finished after midnight it is counted as the same shift. The report goes to the manager for approval.')}</p></div>`,
+  ()=>{const dt=val('sdt'),a=val('sst'),b=val('sen');if(!need(dt&&a&&b&&a!==b,_('מלאו תאריך, שעת הגעה ושעת סיום','Fill in the date, start and end')))return'stay';
+   if(D.shifts.some(s=>s.staff===me()&&s.date===dt&&s.start===a)){toast(_('המשמרת הזו כבר דווחה','This shift was already reported'));return'stay'}
+   const sh={id:uid(),staff:me(),date:dt,start:a,end:b,kind:kindOfStart(a),manual:true,status:S.role==='manager'?'approved':'pending'};sh.hours=hoursOf(sh);if(S.role==='manager')sh.rate=shiftDefaultCost(sh);D.shifts.push(sh);
+   if(S.role!=='manager')notifyMgr(_('דיווח שעות ממתין לאישור','Hours report needs approval'),`${staffName(me())} · ${fmtDate(dt)} · ${a}–${b}`);return _('הדיווח נשלח לאישור','Sent for approval')},_('שליחה','Send'));return'keep'},
+ clockIn:()=>{if(myOpenShift()){toast(_('כבר נכנסת למשמרת','You are already clocked in'));return}D.shifts.push({id:uid(),staff:me(),date:TD,start:NOWT,kind:kindOfStart(NOWT),status:'open',at:new Date().toISOString()});save();toast(`${_('נכנסת למשמרת ב־','Clocked in at ')}${NOWT}`)},
+ clockOut:()=>{const o=myOpenShift();if(!o)return;
+  modal(_('סיום משמרת','Clock out'),`<div class="form"><p>${_('נכנסת ב־','In at ')}<b dir="ltr">${o.start}</b> · ${fmtDate(o.date,{weekday:'short',day:'numeric',month:'short'})}</p>${fld('coe',_('שעת סיום','End time'),`<input id="coe" type="time" value="${NOWT}">`)}${!wroteSummary(me(),o.date)?`<div class="banner warnb"><b>${_('לא נכתב סיכום למשמרת.','No summary written for this shift.')}</b></div>`:''}</div>`,
+   ()=>{o.end=val('coe')||NOWT;o.hours=hoursOf(o);o.status='pending';if(o.hours>20){toast(_('יותר מ־20 שעות – בדקו את השעות','More than 20 hours – check the times'));return'stay'}
+    notifyMgr(_('דיווח שעות ממתין לאישור','Hours report needs approval'),`${staffName(me())} · ${fmtDate(o.date)} · ${o.start}–${o.end} (${o.hours} ${_('שעות','h')})`);return `${_('המשמרת נסגרה','Shift closed')}: ${o.hours} ${_('שעות','hours')}`},_('סיום','Clock out'));return'keep'},
+ shEdit:v=>{const x=v?D.shifts.find(z=>z.id===v):null;const cs=D.staff.filter(s=>s.role!=='manager');
+  modal(x?_('עריכת דיווח שעות','Edit hours report'):_('דיווח שעות','Hours report'),`<div class="form">${x?`<p><b>${esc(staffName(x.staff))}</b></p>`:sel('eds',_('איש צוות','Staff member'),cs.map(s=>[s.id,nm(s.name)]),(cs.find(s=>s.role==='counselor')||cs[0]||{}).id)}
+   ${fld('edd',_('תאריך','Date'),`<input id="edd" type="date" value="${x?x.date:TD}">`)}<div class="fr">${fld('eda',_('הגעה','Start'),`<input id="eda" type="time" value="${x&&x.start||'09:00'}">`)}${fld('ede',_('סיום','End'),`<input id="ede" type="time" value="${x&&x.end||'17:00'}">`)}</div>
+   ${num('edc',_('עלות ₪ (ריק = לפי התעריף)','Cost ₪ (empty = by rate)'),x&&x.status==='approved'&&x.rate?x.rate:'')}
+   ${x?`<label class="toggle"><input type="checkbox" id="edx">${_('מחיקת הדיווח','Delete this report')}</label>`:''}<p class="hint">${_('שמירה מאשרת את הדיווח.','Saving approves the report.')}</p></div>`,
+   ()=>{if(x&&$('#edx')&&$('#edx').checked){D.shifts=D.shifts.filter(z=>z.id!==x.id);return _('הדיווח נמחק','Report deleted')}
+    const sh=x||{id:uid(),staff:val('eds')};sh.date=val('edd')||TD;sh.start=val('eda');sh.end=val('ede');if(!need(sh.start&&sh.end&&sh.start!==sh.end,_('בדקו את השעות','Check the times')))return'stay';
+    sh.kind=kindOfStart(sh.start);sh.hours=hoursOf(sh);const c=val('edc');sh.rate=c!==''?r2(+c):shiftDefaultCost(sh);sh.status='approved';sh.editedBy=me();if(!x)D.shifts.push(sh);return _('הדיווח נשמר ואושר','Report saved and approved')},_('שמירה','Save'));return'keep'},
  comp:v=>{const s=staffBy(v);const c=s.comp||{};const row=(k,l)=>`<div class="fr">${num('c_'+k,l+' ₪',c[k]?c[k].amt:'')}${sel('p_'+k,_('לפי','Per'),[['session',nm(PER.session)],['hour',nm(PER.hour)]],c[k]?c[k].per:'session')}</div>`;
-  modal(`${_('תעריפים','Rates')} · ${nm(s.name)}`,`<div class="form">${row('individual',_('טיפול פרטני','Individual'))}${row('group',_('קבוצה','Group'))}${row('activity',_('פעילות','Activity'))}<div class="fr">${num('c_shift',_('משמרת ₪','Shift ₪'),c.shift||'')}${num('c_monthly',_('סכום חודשי קבוע ₪','Fixed monthly ₪'),c.monthly||'')}</div><p class="hint">${_('השאירו ריק כשאין תשלום מהסוג הזה.','Leave empty where that kind of pay does not apply.')}</p></div>`,
-  ()=>{const n={};['individual','group','activity'].forEach(k=>{const a=+val('c_'+k);if(a>0)n[k]={amt:a,per:val('p_'+k)}});if(+val('c_shift')>0)n.shift=+val('c_shift');if(+val('c_monthly')>0)n.monthly=+val('c_monthly');s.comp=n;return _('התעריפים עודכנו','Rates updated')});return'keep'},
+  modal(`${_('תעריפים','Rates')} · ${nm(s.name)}`,`<div class="form">${row('individual',_('טיפול פרטני','Individual'))}${row('group',_('קבוצה','Group'))}${row('activity',_('פעילות','Activity'))}<div class="fr">${num('c_hourly',_('שעת עבודה ₪','Per hour worked ₪'),c.hourly||'')}${num('c_shift',_('משמרת ₪','Shift ₪'),c.shift||'')}</div>${num('c_monthly',_('סכום חודשי קבוע ₪','Fixed monthly ₪'),c.monthly||'')}<p class="hint">${_('כשיש תעריף שעתי, עלות כל משמרת = שעות × תעריף. אחרת – תעריף המשמרת.','With an hourly rate each shift costs hours × rate; otherwise the shift rate.')}</p><p class="hint">${_('השאירו ריק כשאין תשלום מהסוג הזה.','Leave empty where that kind of pay does not apply.')}</p></div>`,
+  ()=>{const n={};['individual','group','activity'].forEach(k=>{const a=+val('c_'+k);if(a>0)n[k]={amt:a,per:val('p_'+k)}});if(+val('c_hourly')>0)n.hourly=+val('c_hourly');if(+val('c_shift')>0)n.shift=+val('c_shift');if(+val('c_monthly')>0)n.monthly=+val('c_monthly');s.comp=n;return _('התעריפים עודכנו','Rates updated')});return'keep'},
  pay:v=>{const s=staffBy(v);const ow=staffOwed(v);
   modal(`${_('תשלום ל','Payment to ')}${nm(s.name)}`,`<div class="form"><p>${_('חוב פתוח','Owed now')}: <b>${money(ow)}</b></p><div class="fr">${num('pa','₪',ow)}${sel('pm',_('איך שולם','How paid'),[['org',_('העברה מהארגון','Transfer from the organization')],['cash',_('מזומן מקופת רטורנו','Cash from the Retorno box')]],'org')}</div>${txt('pn',_('פירוט','Details'),_('תשלום חודשי','Monthly payment'))}<p class="hint">${_('התשלום מקטין את החוב. העלות כבר נרשמה כשהעבודה אושרה, ולכן התשלום לא נספר שוב כהוצאה.','The payment reduces what is owed. The cost was recorded when the work was confirmed, so the payment is not counted again as an expense.')}</p></div>`,
   ()=>{const a=+val('pa');if(!need(a>0,_('הזינו סכום','Enter an amount')))return'stay';const pm=val('pm');const p={id:uid(),staff:v,date:TD,amount:r2(a),method:pm,note:val('pn')};D.payments.push(p);
@@ -1551,8 +1712,12 @@ const A={
      D.tx.push({id:uid(),date:TD,kind:'rebal',method:'none',amount:Math.abs(d),desc:d>0?`${_('העברה ממזומן לאשראי','Cash to credit')} ${money(d)}`:`${_('העברה מאשראי למזומן','Credit to cash')} ${money(-d)}`,moves:[{p:k,d:-d,m:'cash'},{p:k,d:d,m:'bank'}],by:me()});n++});
     return n?`${_('החלוקה עודכנה ל','Split updated for ')}${n} ${_('מטופלים','patients')}`:_('לא היה שינוי','Nothing changed')},_('שמירה','Save'));
   document.querySelectorAll('.sbk').forEach(i=>i.addEventListener('input',()=>{const c=document.getElementById('sbc_'+i.dataset.p);if(c)c.textContent=money(r2(+i.dataset.t-(+i.value||0)))}));return'keep'},
- settings:()=>{const s=D.settings;modal(_('הגדרות','Settings'),`<div class="form"><div class="fr">${num('st1',_('מחיר חפיסת סיגריות ₪','Cigarette pack price ₪'),s.cigPrice)}${num('st2',_('החזר נסיעה לק״מ ₪','Mileage per km ₪'),s.kmRate)}</div>${num('st3',_('שער דולר ברירת מחדל','Default USD rate'),s.fx)}</div>`,
-  ()=>{const a=+val('st1'),b=+val('st2'),c=+val('st3');if(!need(a>=0&&b>=0&&c>0,_('בדקו את הערכים','Check the values')))return'stay';s.cigPrice=a;s.kmRate=b;s.fx=c;return _('ההגדרות נשמרו','Settings saved')});return'keep'},
+ settings:()=>{const s=D.settings;modal(_('הגדרות','Settings'),`<div class="form"><div class="fr">${num('st1',_('מחיר חפיסת סיגריות ₪','Cigarette pack price ₪'),s.cigPrice)}${num('st2',_('החזר נסיעה לק״מ ₪','Mileage per km ₪'),s.kmRate)}</div>${num('st3',_('שער דולר ברירת מחדל','Default USD rate'),s.fx)}
+   <div class="f"><span class="lab">${_('תזכורות לכתיבת סיכום (לטלפון של המדריך במשמרת)','Summary reminders (to the counselor on shift)')}</span>
+   <div class="fr">${fld('rm_d1',_('בוקר – אמצע','Morning – middle'),`<input id="rm_d1" type="time" value="${(s.remind||{}).day?.[0]||'13:00'}">`)}${fld('rm_d2',_('בוקר – לקראת סיום','Morning – near the end'),`<input id="rm_d2" type="time" value="${(s.remind||{}).day?.[1]||'16:00'}">`)}</div>
+   <div class="fr">${fld('rm_e1',_('לילה – אמצע','Night – middle'),`<input id="rm_e1" type="time" value="${(s.remind||{}).evening?.[0]||'22:00'}">`)}${fld('rm_e2',_('לילה – לקראת סיום','Night – near the end'),`<input id="rm_e2" type="time" value="${(s.remind||{}).evening?.[1]||'08:00'}">`)}</div>
+   <span class="hint">${_('התזכורת נשלחת רק למי שבמשמרת לפי לוח המשמרות (או מי שנכנס למשמרת), ורק אם עוד לא כתב סיכום.','A reminder goes only to whoever is on shift (by the roster, or who clocked in), and only if they have not written a summary yet.')}</span></div></div>`,
+  ()=>{const a=+val('st1'),b=+val('st2'),c=+val('st3');if(!need(a>=0&&b>=0&&c>0,_('בדקו את הערכים','Check the values')))return'stay';s.cigPrice=a;s.kmRate=b;s.fx=c;s.remind={day:[val('rm_d1')||'13:00',val('rm_d2')||'16:00'],evening:[val('rm_e1')||'22:00',val('rm_e2')||'08:00']};return _('ההגדרות נשמרו','Settings saved')});return'keep'},
  demoLoad:()=>{modal(_('טעינת נתוני דוגמה','Load sample data'),`<p>${_('יתווספו מטופלים, פעילויות וכספים לדוגמה, וכל הצוות יראה אותם. הם מסומנים כדוגמה ואפשר למחוק את כולם בלחיצה אחת.','Sample patients, activities and money entries will be added, and the whole team will see them. They are marked as samples and can all be deleted in one click.')}</p>`,()=>{loadDemo();return _('נתוני הדוגמה נטענו','Sample data loaded')},_('טעינה','Load'));return'keep'},
  demoClear:()=>{modal(_('מחיקת נתוני הדוגמה','Delete sample data'),`<p>${_('כל הנתונים שסומנו כדוגמה יימחקו לצמיתות. נתונים שהוזנו ידנית יישארו.','Everything marked as sample data will be deleted for good. Data entered by hand stays.')}</p>`,()=>{clearDemo();return _('נתוני הדוגמה נמחקו','Sample data deleted')},_('מחיקה','Delete'));return'keep'},
  reportExp:v=>{const it=[{desc:'',amount:''}];
@@ -1647,7 +1812,7 @@ The note:
  pubSum:v=>{const s=D.summaries.find(x=>x.id===v);readReview(s);
   if(s.unclear&&s.unclear.length&&!($('#chk')&&$('#chk').checked)){toast(_('סמנו שבדקתם את הנקודות שסומנו','Confirm you checked the flagged points'));return'keep'}
   if(!s.general.trim()&&!s.parts.some(p=>p.text.trim())){toast(_('הסיכום ריק','The summary is empty'));return'keep'}
-  s.parts=s.parts.filter(p=>p.text.trim());s.status='published';s.stage='done';s.publishedAt=new Date().toISOString();save();toast(_('הסיכום פורסם וחלקי המטופלים נכנסו לתיקים','Published; patient sections were added to their files'))}
+  s.parts=s.parts.filter(p=>p.text.trim());s.status='published';s.stage='done';s.publishedAt=new Date().toISOString();save();sumNotify(_('סיכום יום חדש','New daily summary'),'sum:'+s.id);toast(_('הסיכום פורסם וחלקי המטופלים נכנסו לתיקים','Published; patient sections were added to their files'))}
 };
 function sumFromForm(id){
  const o=val('so');if(!o){toast(_('כתבו קודם את הסיכום','Write the summary first'));return null}
@@ -1657,7 +1822,7 @@ function sumFromForm(id){
  return s;
 }
 function readReview(s){
- if(!$('#sg'))return;s.general=$('#sg').value;document.querySelectorAll('.ppart textarea').forEach((t,i)=>{if(s.parts[i])s.parts[i].text=t.value});
+ if(!$('#sg'))return;s.general=$('#sg').value;document.querySelectorAll('.ppart textarea').forEach((t,i)=>{if(s.parts[i])s.parts[i].text=t.value});s.parts.forEach((x,i)=>{x.topics=[...document.querySelectorAll(`.ptop[data-i="${i}"]:checked`)].map(c=>c.value);const tk=document.querySelector(`.ptask[data-i="${i}"]`);if(tk)x.task=tk.value.trim()});
  const ap=val('addPid');if(ap&&!s.parts.some(p=>p.pid===ap))s.parts.push({pid:ap,text:''});
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b||!b.isConnected)return;const f=A[b.dataset.a];if(!f)return;e.preventDefault();const r=f(b.dataset.v,b);if(r!=='keep')render()});

@@ -410,6 +410,21 @@ table.roster tr.sat td{background:var(--surface-2)}
 .msg-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.msg-h .muted{font-size:.82rem}
 .unread .msg{background:var(--accent-soft)}
 .msgban{width:100%;text-align:start;border:0;cursor:pointer;font:inherit;color:inherit}
+
+/* summaries: read receipts, tasks, care thread */
+.readbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.readbar .chip.on{background:var(--accent-soft)}
+.row.unread{background:var(--accent-soft);border-radius:10px;padding-inline:8px}
+.taskln{margin-top:6px;padding:6px 10px;border-radius:8px;background:#fdf6e3;border:1px solid #ecdcae;font-size:.9rem}
+.taskln.done{background:transparent;border-style:dashed;opacity:.75}
+.checks.sm label{padding:2px 9px;font-size:.8rem}
+.ppart .ptask{margin-top:6px;width:100%}
+.lane{font-size:.85rem;text-transform:none;color:var(--muted);margin:0 0 8px;font-weight:700}
+.care-cols>div{min-width:0}
+.note.care{margin-bottom:10px}
+.note.care.therapy{border-inline-start:3px solid var(--accent)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .taskln{background:rgba(236,220,174,.08);border-color:rgba(236,220,174,.3)}}
+:root[data-theme="dark"] .taskln{background:rgba(236,220,174,.08);border-color:rgba(236,220,174,.3)}
 </style>
 
 <div id="app"></div>
