@@ -33,7 +33,9 @@ Deno.serve(async (req) => {
 
     const p = await req.json();
     const aud = p.audience;
-    if (aud !== "managers" && !isAdmin) return json(403, { error: "managers only" });
+    // staff may notify managers, and may tell the counselor on shift about a schedule change they made
+    const schedNote = aud && Array.isArray(aud.staff) && aud.staff.length === 1 && String(p.tag || "").startsWith("sched-");
+    if (aud !== "managers" && !isAdmin && !schedNote) return json(403, { error: "managers only" });
 
     const { data: links } = await db.from("docs").select("path, body").eq("collection", "links");
     const { data: staffDoc } = await db.from("docs").select("body").eq("path", "meta/staff").maybeSingle();

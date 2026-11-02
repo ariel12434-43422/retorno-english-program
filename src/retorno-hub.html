@@ -1690,7 +1690,7 @@ function msgCard(m,mine){const t=MSGT[m.type]||MSGT.general;const reads=(D.reads
  ${mine?`<div class="s">${_('נשלחה ל','Sent to')}: ${(m.to||[]).map(id=>`<span class="chip ${reads.includes(id)?'on':''}" title="${reads.includes(id)?_('קרא/ה','Read'):_('טרם קרא/ה','Not read yet')}">${esc(staffName(id))}${reads.includes(id)?' ✓':''}</span>`).join(' ')}</div>`:''}</div>`}
 function vMessages(){
  const mgr=S.role==='manager';
- if(!mgr){const list=myMsgs();const r=readMap();const html=`<div class="page-h"><div><p class="eyebrow">${_('הודעות מהמנהל','Messages from the manager')}</p><h1>${_('הודעות','Messages')}</h1></div>${notifBtn()}</div>
+ if(!mgr){const list=myMsgs();const r=readMap();const html=`<div class="page-h"><div><p class="eyebrow">${_('הודעות מהמנהל ועדכוני לו״ז','Messages from the manager and schedule updates')}</p><h1>${_('הודעות','Messages')}</h1></div>${notifBtn()}</div>
   <section class="card"><div class="list msgs">${list.map(m=>`<div class="${r[m.id]?'':'unread'}">${msgCard(m,false)}</div>`).join('')||empty(_('אין הודעות עדיין.','No messages yet.'))}</div></section>`;
   setTimeout(()=>markRead(list.filter(m=>!r[m.id]).map(m=>m.id)),1200);return html}
  const sent=(D.messages||[]).slice().sort((a,b)=>b.at.localeCompare(a.at));
@@ -1705,9 +1705,17 @@ function vMessages(){
  <section class="card"><div class="card-h"><h2>${_('הודעות שנשלחו','Sent messages')}</h2><span class="chip">${sent.length}</span></div><div class="list msgs">${sent.map(m=>msgCard(m,true)).join('')||empty(_('עוד לא נשלחו הודעות.','No messages sent yet.'))}</div></section></div>`;
 }
 function unreadBanner(){const r=readMap();const u=myMsgs().filter(m=>!r[m.id]);if(!u.length)return'';const imp=u.find(m=>m.type==='important');
- return`<button class="banner ${imp?'warnb':''} msgban" data-a="nav" data-v="messages"><b>${u.length} ${_('הודעות חדשות מהמנהל','new messages from the manager')}</b>${imp?` · <span dir="auto">${esc(imp.title)}</span>`:''}<span style="flex:1"></span>${_('לקריאה','Read')}</button>`}
+ return`<button class="banner ${imp?'warnb':''} msgban" data-a="nav" data-v="messages"><b>${u.length} ${_('הודעות חדשות','new messages')}</b>${imp?` · <span dir="auto">${esc(imp.title)}</span>`:''}<span style="flex:1"></span>${_('לקריאה','Read')}</button>`}
 // push notifications: only when the app runs on its own server (see the supabase provider); elsewhere these are no-ops
 function notify(p){try{if(window.RETORNO_NOTIFY)window.RETORNO_NOTIFY(p)}catch(e){}}
+// a schedule change: tell the counselor whose shift the activity falls in (a message in the app + a phone notification)
+function schedNotify(date,time,what){
+ if(!date||date<TD)return;const sh=shiftAt(date,time||'12:00');const cid=onShift(sh);if(!cid||cid===me())return;
+ const title=_('שינוי בלו״ז במשמרת שלך','Schedule change in your shift');
+ const body=`${what} · ${fmtDate(date,{weekday:'short',day:'numeric',month:'short'})}${time?' · '+time:''} · ${_('עודכן ע״י','by')} ${staffName(me())}`;
+ const m={id:uid(),from:me(),type:'general',to:[cid],title,body,at:new Date().toISOString(),kind:'sched'};(D.messages||(D.messages=[])).push(m);
+ notify({audience:{staff:[cid]},title:'📅 '+title,body,url:'#schedule',tag:'sched-'+m.id});
+}
 function notifyMgr(title,body){notify({audience:'managers',title,body,url:'#approvals'})}
 // a new summary: tell the managers. The notification shows only the type and the writer, never the clinical text
 function sumNotify(title,key){if(S.role==='manager')return;notify({audience:'managers',title,body:`${staffName(me())} · ${fmtDate(TD)}`,url:'#dashboard',tag:'sum-'+key})}
@@ -1936,6 +1944,7 @@ const A={
     const dup=instances(S.date).find(o=>o.staff===it.staff&&o.type===it.type&&o.log.status!=='cancelled'&&(it.pts==='all'?o.pts==='all':o.patients.some(p=>picked.includes(p))));
     if(dup&&!($('#adup')&&$('#adup').checked)){if(!$('#adup'))$('.sheet .form').insertAdjacentHTML('beforeend',`<div class="banner warnb"><div><b>${_('כבר קיימת פעילות דומה ביום הזה','A similar activity already exists on this day')}:</b> ${esc(nm(dup.title))} · ${dup.time} · ${staffName(dup.staff)}. ${_('אם זו אותה פעילות, אשרו אותה בלו״ז במקום להוסיף – כך העלות לא תירשם פעמיים.','If it is the same one, confirm it in the schedule instead – that way its cost is not recorded twice.')}<label class="toggle" style="margin-top:6px"><input type="checkbox" id="adup">${_('זו פעילות נפרדת – להוסיף בכל זאת','This is a separate activity – add it anyway')}</label></div></div>`);return'stay'}
     if(val('ax'))it.transport={he:val('ax'),en:val('ax')};
+    schedNotify(S.date,a1,`${_('נוספה פעילות','Activity added')}: ${t} (${a1}–${a2})`);
     if($('#arep')&&$('#arep').checked){(D.template[dowOf(S.date)]=D.template[dowOf(S.date)]||[]).push(it);return _('נוסף ללו״ז השבועי','Added to the weekly schedule')}
     const ov=D.overrides[S.date]=D.overrides[S.date]||{};(ov.add=ov.add||[]).push(it);return _('נוסף ליום הזה','Added to this day')});
   document.querySelectorAll('.ap').forEach(c=>c.onchange=()=>{$('#aall').checked=!document.querySelector('.ap:checked')});return'keep'},
@@ -2195,6 +2204,9 @@ const A={
     staff:['','shift','ext'].includes(ld)?'':ld,byShift:ld==='shift'||ld==='ext',inShift:ld==='shift'||ld==='ext',leader:ld==='ext'&&val('elx')?{he:val('elx'),en:val('elx')}:null};
    if(f.type==='routine'){f.byShift=false;f.inShift=false}
    const scope=(document.querySelector('input[name=esc]:checked')||{}).value||'day';const del=$('#edel').checked;
+   {const nmT=nm(f.title);const chg=[];if(t1!==x.time||t2!==x.end)chg.push(`${_('שעה','time')} ${x.time}–${x.end} ← ${t1}–${t2}`);if(f.loc.he!==(nm(x.loc)||''))chg.push(_('מיקום','location'));if(f.staff!==(x.staff||''))chg.push(_('מוביל','leader'));if(f.type!==x.type)chg.push(_('סוג','type'));if(nmT!==nm(x.title))chg.push(_('שם','name'));if(stable(f.pts)!==stable(x.pts))chg.push(_('משתתפים','participants'));
+    const what=del?`${_('בוטלה פעילות','Activity removed')}: ${nm(x.title)} (${x.time})`:`${_('עודכנה פעילות','Activity changed')}: ${nmT}${chg.length?' – '+chg.join(', '):''}${scope==='week'?' · '+_('בכל שבוע','every week'):''}`;
+    schedNotify(x.date,x.time,what);if(!del&&t1!==x.time&&shiftAt(x.date,t1).kind!==shiftAt(x.date,x.time).kind)schedNotify(x.date,t1,what)}
    const ov=D.overrides[x.date]=D.overrides[x.date]||{};
    if(x.src==='day'){if(del){ov.add=(ov.add||[]).filter(a=>a.id!==x.id);return _('הפעילות הוסרה מהיום הזה','Removed from this day')}const it=ov.add.find(a=>a.id===x.id);Object.assign(it,f);if(!f.leader)delete it.leader;return _('השינוי נשמר','Change saved')}
    if(scope==='week'&&mgr&&tplItem){const l=D.template[dowOf(x.date)];if(del){D.template[dowOf(x.date)]=l.filter(i=>i.id!==x.id);return _('הפעילות הוסרה מהלו״ז הקבוע','Removed from the base schedule')}
