@@ -410,6 +410,8 @@ table.roster tr.sat td{background:var(--surface-2)}
 :root[data-theme="dark"] .taskln{background:rgba(236,220,174,.08);border-color:rgba(236,220,174,.3)}
 
 .consln{margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+
+.incacts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
 </style>
 
 <div id="app"></div>
@@ -848,15 +850,16 @@ function lastDaily(pid){
 }
 function incidentsCard(days){
  if(!P().incidents)return'';
- const list=D.incidents.filter(i=>diff(i.date,TD)<=days&&!pat(i.pid)?.archived).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+ const list=D.incidents.filter(i=>(diff(i.date,TD)<=days||!i.resolved)&&!pat(i.pid)?.archived).sort((a,b)=>Number(!!a.resolved)-Number(!!b.resolved)||(b.date+b.time).localeCompare(a.date+a.time));
  return`<section class="card"><div class="card-h"><h2>${_('חריגות אחרונות','Recent incidents')}</h2><button class="btn sm ghost" data-a="incident">+ ${_('דיווח','Report')}</button></div>
  <div class="list">${list.map(i=>incidentBlock(i,true)).join('')||empty(_('לא דווחו חריגות.','No incidents reported.'))}</div></section>`;
 }
 function incidentBlock(i,withName){
  const t=trShown('inc',i.id)&&i.tr;
- return`<div class="note"><div class="note-h"><span class="typ bad">${_('חריגה','Incident')}</span>${withName?`<button class="link" data-a="openP" data-v="${i.pid}">${esc(pat(i.pid)?.name||'')}</button>`:''}<span>${when(i.date,i.time)}</span><span>${_('דיווח','Reported by')}: ${staffName(i.author)}</span>${i.followup?`<span class="pill ${i.resolved?'ok':'warn'}">${i.resolved?_('טופל','Handled'):_('למעקב','Follow-up')}</span>`:''}</div>
+ return`<div class="note"><div class="note-h"><span class="typ bad">${_('חריגה','Incident')}</span>${withName?`<button class="link" data-a="openP" data-v="${i.pid}">${esc(pat(i.pid)?.name||'')}</button>`:''}<span>${when(i.date,i.time)}</span><span>${_('דיווח','Reported by')}: ${staffName(i.author)}</span>${i.resolved?`<span class="pill ok">✓ ${_('טופלה','Handled')}</span>`:i.followup?`<span class="pill warn">${_('למעקב','Follow-up')}</span>`:`<span class="pill warn">${_('פתוחה','Open')}</span>`}</div>
  <div class="inc"><div><span class="k">${_('מה קרה','What happened')}</span><div class="note-b" dir="auto">${esc(t?i.tr.what:i.what)}</div></div>
  <div><span class="k">${_('תגובה / השלכה','Response / consequence')}</span><div class="note-b" dir="auto">${esc(t?i.tr.response:i.response)||'—'}</div><div class="hint">${_('החליט/ה','Decided by')}: ${staffName(i.decidedBy)}</div>${consLine(i)}</div></div>
+ <div class="incacts">${i.resolved?`<span class="hint">${_('טופלה','Handled')}${i.resolvedBy?` · ${esc(staffName(i.resolvedBy))}`:''}${i.resolvedAt?` · ${fmtDate(i.resolvedAt)}`:''}</span>${S.role==='manager'?`<button class="link" data-a="incReopen" data-v="${i.id}">${_('פתיחה מחדש','Reopen')}</button>`:''}`:P().incidents?`<button class="btn sm" data-a="incClose" data-v="${i.id}">✓ ${_('סימון כטופלה','Mark as handled')}</button>`:''}${S.role==='manager'?`<button class="btn sm ghost danger" data-a="incDel" data-v="${i.id}">${_('מחיקה','Delete')}</button>`:''}</div>
  ${trControl('inc',i.id,i)}</div>`;
 }
 // did the patient carry out the consequence decided for an incident
@@ -1887,7 +1890,7 @@ const A={
   const p=k==='note'?SAMPLE(`Translate the following staff note from a treatment program into ${target}. Keep the meaning, tone and severity exactly. Do not add or remove anything. Reply with the translation only.\n\n${src}`,{modelTier:'quick'}).then(r=>r.text.trim())
    :SAMPLE.json(`Translate the two fields of this incident report from a treatment program into ${target}. Keep meaning, tone and severity exactly; add or remove nothing. Reply with only a JSON object {"what": string, "response": string}.\n\n${src}`,{modelTier:'quick'});
   p.then(tr=>{o.tr=tr;S.showTr[v]=true;save();render()}).catch(e=>{toast(sampleErr(e.code));render()});return'keep'},
- resolve:v=>{const[k,id]=v.split(':');const o=k==='inc'?D.incidents.find(n=>n.id===id):D.notes.find(n=>n.id===id);if(o)o.resolved=true;save();toast(_('סומן כטופל','Marked as handled'))},
+ resolve:v=>{const[k,id]=v.split(':');const o=k==='inc'?D.incidents.find(n=>n.id===id):D.notes.find(n=>n.id===id);if(o){o.resolved=true;o.resolvedBy=me();o.resolvedAt=TD}save();toast(_('סומן כטופל','Marked as handled'))},
  restore:v=>{delete D.log[v];save()},
  about:()=>{const mgr=SH.on&&sharedRole()==='manager'&&adminIn();const hasDemo=D.patients.some(p=>p.demo)||D.staff.some(s=>s.demo);
   modal(_('על המערכת','About the system'),`<div class="form"><p>${_('כל אזור מחובר לאחרים: נוכחות, חריגות וסיכומים נכנסים לתיק המטופל, וכל תנועה כספית מעדכנת את הקופה ואת היתרות.','Every area is connected: attendance, incidents and summaries flow into the patient file, and every money entry updates the cash box and balances.')}</p>
@@ -1971,8 +1974,13 @@ const A={
     D.notes.push(n);sumNotify(n.kind==='therapy'?_('סיכום טיפולי חדש','New therapy summary'):_('תיעוד יומי חדש','New daily note'),'note:'+n.id);return _('התיעוד נשמר','Note saved')});return'keep'},
  consDone:v=>{const i=D.incidents.find(x=>x.id===v);if(!i)return;
   modal(_('ביצוע ההשלכה','Consequence carried out'),`<div class="form"><p><b>${esc(pat(i.pid)?.name||'')}</b> · ${fmtDate(i.date)}</p><div class="note-b" dir="auto">${esc(i.response)}</div>${fld('cdt',_('מתי בוצע','Done on'),`<input id="cdt" type="date" value="${TD}">`)}${txt('cnt',_('הערה (לא חובה)','Note (optional)'))}</div>`,
-   ()=>{i.consDone=true;i.consBy=me();i.consAt=val('cdt')||TD;i.consNote=val('cnt');return _('סומן: המטופל ביצע את ההשלכה','Marked: the patient carried out the consequence')},_('סימון כבוצע','Mark as done'));return'keep'},
- consUndo:v=>{const i=D.incidents.find(x=>x.id===v);if(!i||S.role!=='manager')return;i.consDone=false;delete i.consBy;delete i.consAt;delete i.consNote;save();toast(_('הסימון בוטל','Undone'))},
+   ()=>{i.consDone=true;i.consBy=me();i.consAt=val('cdt')||TD;i.consNote=val('cnt');if(!i.resolved){i.resolved=true;i.resolvedBy=me();i.resolvedAt=i.consAt}return _('סומן: המטופל ביצע את ההשלכה','Marked: the patient carried out the consequence')},_('סימון כבוצע','Mark as done'));return'keep'},
+ incClose:v=>{const i=D.incidents.find(x=>x.id===v);if(!i)return;i.resolved=true;i.resolvedBy=me();i.resolvedAt=TD;save();toast(_('החריגה סומנה כטופלה','Incident marked as handled'))},
+ incReopen:v=>{const i=D.incidents.find(x=>x.id===v);if(!i||S.role!=='manager')return;i.resolved=false;delete i.resolvedBy;delete i.resolvedAt;save();toast(_('החריגה נפתחה מחדש','Incident reopened'))},
+ incDel:v=>{const i=D.incidents.find(x=>x.id===v);if(!i||S.role!=='manager')return'keep';
+  modal(_('מחיקת חריגה','Delete incident'),`<div class="form"><p><b>${esc(pat(i.pid)?.name||'')}</b> · ${fmtDate(i.date)}</p><div class="note-b" dir="auto">${esc(i.what)}</div><div class="banner warnb"><b>${_('המחיקה סופית ולא ניתן לשחזר אותה.','Deleting is permanent and cannot be undone.')}</b></div></div>`,
+   ()=>{D.incidents=D.incidents.filter(x=>x.id!==v);return _('החריגה נמחקה','Incident deleted')},_('מחיקה','Delete'));return'keep'},
+ consUndo:v=>{const i=D.incidents.find(x=>x.id===v);if(!i||S.role!=='manager')return;i.consDone=false;delete i.consBy;delete i.consAt;delete i.consNote;i.resolved=false;delete i.resolvedBy;delete i.resolvedAt;save();toast(_('הסימון בוטל','Undone'))},
  sumRead:v=>{markRead([v]);toast(_('סומן כנקרא','Marked as read'))},
  sumOpen:v=>{const[k,id]=v.split(':');if(k==='sum'){S.view='summary';S.sumId=id}else{const n=D.notes.find(x=>x.id===id);if(n){S.view='patients';S.pid=n.pid;S.ptab='care'}}render();setTimeout(()=>{const el=document.getElementById('c_'+v.replace(':','_'));if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'})},50)},
  taskDone:v=>{const n=D.notes.find(x=>x.id===v);if(!n)return;n.taskDone=true;n.taskDoneBy=me();n.taskDoneAt=TD;save();toast(_('המשימה סומנה כבוצעה','Task marked done'))},
