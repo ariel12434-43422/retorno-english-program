@@ -437,8 +437,14 @@ function incidentBlock(i,withName){
  const t=trShown('inc',i.id)&&i.tr;
  return`<div class="note"><div class="note-h"><span class="typ bad">${_('חריגה','Incident')}</span>${withName?`<button class="link" data-a="openP" data-v="${i.pid}">${esc(pat(i.pid)?.name||'')}</button>`:''}<span>${when(i.date,i.time)}</span><span>${_('דיווח','Reported by')}: ${staffName(i.author)}</span>${i.followup?`<span class="pill ${i.resolved?'ok':'warn'}">${i.resolved?_('טופל','Handled'):_('למעקב','Follow-up')}</span>`:''}</div>
  <div class="inc"><div><span class="k">${_('מה קרה','What happened')}</span><div class="note-b" dir="auto">${esc(t?i.tr.what:i.what)}</div></div>
- <div><span class="k">${_('תגובה / השלכה','Response / consequence')}</span><div class="note-b" dir="auto">${esc(t?i.tr.response:i.response)||'—'}</div><div class="hint">${_('החליט/ה','Decided by')}: ${staffName(i.decidedBy)}</div></div></div>
+ <div><span class="k">${_('תגובה / השלכה','Response / consequence')}</span><div class="note-b" dir="auto">${esc(t?i.tr.response:i.response)||'—'}</div><div class="hint">${_('החליט/ה','Decided by')}: ${staffName(i.decidedBy)}</div>${consLine(i)}</div></div>
  ${trControl('inc',i.id,i)}</div>`;
+}
+// did the patient carry out the consequence decided for an incident
+function consLine(i){
+ if(!(i.response||'').trim())return'';
+ if(i.consDone)return`<div class="consln done"><span class="pill ok">✓ ${_('המטופל ביצע את ההשלכה','The patient carried out the consequence')}</span> <span class="hint">${esc(staffName(i.consBy))} · ${fmtDate(i.consAt)}</span>${i.consNote?`<div class="hint" dir="auto">${esc(i.consNote)}</div>`:''}${S.role==='manager'?` <button class="link" data-a="consUndo" data-v="${i.id}">${_('ביטול הסימון','Undo')}</button>`:''}</div>`;
+ return`<div class="consln"><span class="pill warn">${_('ההשלכה טרם בוצעה','Consequence not done yet')}</span>${P().incidents&&!pat(i.pid)?.archived?` <button class="btn sm" data-a="consDone" data-v="${i.id}">${_('המטופל ביצע','Patient did it')}</button>`:''}</div>`;
 }
 function stageCard(){
  const act=activeP();const c=STAGES.map(s=>({s,n:act.filter(p=>p.stage===s.id).length}));
@@ -462,10 +468,11 @@ function followCard(){
  if(!P().daily)return'';
  const items=[];
  D.incidents.filter(i=>i.followup&&!i.resolved&&!pat(i.pid)?.archived).forEach(i=>items.push({id:'inc:'+i.id,pid:i.pid,date:i.date,who:i.author,text:(S.lang!==i.lang&&i.tr?i.tr.what:i.what),tag:_('חריגה','Incident')}));
+ D.incidents.filter(i=>(i.response||'').trim()&&!i.consDone&&!pat(i.pid)?.archived&&diff(i.date,TD)<=30).forEach(i=>items.push({id:'cons:'+i.id,pid:i.pid,date:i.date,who:i.decidedBy||i.author,text:(S.lang!==i.lang&&i.tr?i.tr.response:i.response),tag:_('השלכה לביצוע','Consequence to carry out'),act:'consDone',v:i.id,btn:_('המטופל ביצע','Patient did it')}));
  D.notes.filter(n=>n.followup&&!n.resolved&&canSeeNote(n)&&!pat(n.pid)?.archived).forEach(n=>items.push({id:'note:'+n.id,pid:n.pid,date:n.date,who:n.author,text:(n.lang!==S.lang&&n.tr?n.tr:n.text),tag:n.kind==='therapy'?_('טיפולי','Therapy'):_('תיעוד','Note')}));
  items.sort((a,b)=>b.date.localeCompare(a.date));
  return`<section class="card"><div class="card-h"><h2>${_('משימות להמשך','Follow-ups')}</h2><span class="chip">${items.length}</span></div>
- ${items.length?items.map(n=>`<div class="alert"><span class="mk ok"></span><div class="grow"><b>${esc(pat(n.pid).name)}</b> · <span class="muted">${n.tag} · ${staffName(n.who)}, ${fmtDate(n.date)}</span><div class="note-b" dir="auto">${esc(trim(n.text,160))}</div></div><button class="btn sm ghost" data-a="resolve" data-v="${n.id}">${_('טופל','Done')}</button></div>`).join(''):empty(_('אין משימות פתוחות.','No open follow-ups.'))}</section>`;
+ ${items.length?items.map(n=>`<div class="alert"><span class="mk ok"></span><div class="grow"><b>${esc(pat(n.pid).name)}</b> · <span class="muted">${n.tag} · ${staffName(n.who)}, ${fmtDate(n.date)}</span><div class="note-b" dir="auto">${esc(trim(n.text,160))}</div></div>${n.act?`<button class="btn sm" data-a="${n.act}" data-v="${n.v}">${n.btn}</button>`:`<button class="btn sm ghost" data-a="resolve" data-v="${n.id}">${_('טופל','Done')}</button>`}</div>`).join(''):empty(_('אין משימות פתוחות.','No open follow-ups.'))}</section>`;
 }
 
 function vSched(){
@@ -1534,6 +1541,10 @@ const A={
    ()=>{const t=val('nt');if(!need(t,_('כתבו תוכן','Write the note first')))return'stay';const k=val('nk');
     const n={id:uid(),pid,date:TD,time:NOWT,at:new Date().toISOString(),author:me(),kind:k,lang:isHe(t)?'he':'en',text:t,tr:null,followup:$('#nf').checked,resolved:false,topics:[...document.querySelectorAll('.ntp:checked')].map(c=>c.value),task:val('nta')||'',taskDone:false,reply:val('nrep')||''};
     D.notes.push(n);sumNotify(n.kind==='therapy'?_('סיכום טיפולי חדש','New therapy summary'):_('תיעוד יומי חדש','New daily note'),'note:'+n.id);return _('התיעוד נשמר','Note saved')});return'keep'},
+ consDone:v=>{const i=D.incidents.find(x=>x.id===v);if(!i)return;
+  modal(_('ביצוע ההשלכה','Consequence carried out'),`<div class="form"><p><b>${esc(pat(i.pid)?.name||'')}</b> · ${fmtDate(i.date)}</p><div class="note-b" dir="auto">${esc(i.response)}</div>${fld('cdt',_('מתי בוצע','Done on'),`<input id="cdt" type="date" value="${TD}">`)}${txt('cnt',_('הערה (לא חובה)','Note (optional)'))}</div>`,
+   ()=>{i.consDone=true;i.consBy=me();i.consAt=val('cdt')||TD;i.consNote=val('cnt');return _('סומן: המטופל ביצע את ההשלכה','Marked: the patient carried out the consequence')},_('סימון כבוצע','Mark as done'));return'keep'},
+ consUndo:v=>{const i=D.incidents.find(x=>x.id===v);if(!i||S.role!=='manager')return;i.consDone=false;delete i.consBy;delete i.consAt;delete i.consNote;save();toast(_('הסימון בוטל','Undone'))},
  sumRead:v=>{markRead([v]);toast(_('סומן כנקרא','Marked as read'))},
  sumOpen:v=>{const[k,id]=v.split(':');if(k==='sum'){S.view='summary';S.sumId=id}else{const n=D.notes.find(x=>x.id===id);if(n){S.view='patients';S.pid=n.pid;S.ptab='care'}}render();setTimeout(()=>{const el=document.getElementById('c_'+v.replace(':','_'));if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'})},50)},
  taskDone:v=>{const n=D.notes.find(x=>x.id===v);if(!n)return;n.taskDone=true;n.taskDoneBy=me();n.taskDoneAt=TD;save();toast(_('המשימה סומנה כבוצעה','Task marked done'))},
