@@ -29,7 +29,7 @@ const AS={manager:'ariel',counselor:'noa',therapist:'orit',admissions:'dvora'};
 const TYPES={routine:{he:'שגרה',en:'Routine'},group:{he:'קבוצה',en:'Group'},individual:{he:'פרטני',en:'Individual'},activity:{he:'פעילות',en:'Activity'},appointment:{he:'תור',en:'Appointment'},transport:{he:'הסעה',en:'Transport'}};
 const PERM={
  manager:{views:['dashboard','approvals','messages','roster','tasks','schedule','patients','summary','finance','staff','leads','reports'],clinical:true,daily:true,finance:true,incidents:true},
- counselor:{views:['dashboard','messages','tasks','roster','schedule','patients','summary','finance','staff'],clinical:false,daily:true,finance:true,incidents:true},
+ counselor:{views:['dashboard','messages','tasks','roster','schedule','patients','summary','finance','staff'],clinical:true,daily:true,finance:true,incidents:true},
  therapist:{views:['dashboard','messages','schedule','patients'],clinical:true,daily:true,finance:false,incidents:true},
  admissions:{views:['leads','messages','schedule'],clinical:false,daily:false,finance:false,incidents:false}};
 const VIEWS={dashboard:{he:'בית',en:'Home',i:'grid'},approvals:{he:'אישורים',en:'Approvals',i:'check'},tasks:{he:'משימות',en:'Tasks',i:'list'},messages:{he:'הודעות',en:'Messages',i:'bell'},roster:{he:'משמרות',en:'Roster',i:'clock'},schedule:{he:'לו״ז',en:'Schedule',i:'cal'},patients:{he:'מטופלים',en:'Patients',i:'users'},summary:{he:'סיכום יום',en:'Daily summary',i:'pen'},finance:{he:'כספים',en:'Finance',i:'wallet'},staff:{he:'צוות',en:'Staff',i:'badge'},leads:{he:'פניות',en:'Leads',i:'funnel'},reports:{he:'דוחות',en:'Reports',i:'chart'}};
@@ -563,7 +563,7 @@ function careThread(p){
   ${kids.length?`<div class="s">${kids.length} ${_('תגובות המשך','follow-ups')}: ${kids.map(k=>`${esc(staffName(k.author))} (${fmtDate(k.date)})`).join(', ')}</div>`:''}
   <div class="toolbar">${!p.archived&&P().daily?`<button class="btn sm ghost" data-a="note" data-v="${p.id}|${i.key}">${_('המשך מכאן','Continue from here')}</button>`:''}</div>${readBar(i)}</div>`};
  const col=(list,kind)=>list.filter(i=>i.kind===kind).map(entry).join('');
- return`<div class="toolbar">${!p.archived&&P().daily?`<button class="btn sm primary" data-a="note" data-v="${p.id}">+ ${_('תיעוד / סיכום','Note / summary')}</button>`:''}<button class="btn sm" data-a="exportSums" data-v="${p.id}">${_('ייצוא כל הסיכומים לקובץ','Export all summaries to a file')}</button></div>
+ return`<div class="toolbar">${!p.archived&&P().daily?`<button class="btn sm primary" data-a="note" data-v="${p.id}">+ ${_('תיעוד / סיכום','Note / summary')}</button>`:''}${S.role==='manager'?`<button class="btn sm" data-a="exportSums" data-v="${p.id}">${_('ייצוא כל הסיכומים לקובץ','Export all summaries to a file')}</button>`:''}</div>
  <div class="grid2 even"><section class="card"><div class="card-h"><h2>${_('משימות שניתנו למטופל','Tasks given to the patient')}</h2><span class="chip ${open.length?'warn':''}">${open.length} ${_('פתוחות','open')}</span></div>
   ${tasks.length?`<div class="list">${tasks.slice().sort((a,b)=>Number(a.taskDone)-Number(b.taskDone)||String(b.at).localeCompare(String(a.at))).slice(0,12).map(i=>`<div class="row"><div class="grow"><div class="t" dir="auto">${esc(i.task)}</div><div class="s">${esc(staffName(i.author))} · ${fmtDate(i.date)}${i.taskDone&&i.obj.taskDoneBy?` · ${_('סומן כבוצע ע״י','marked done by')} ${esc(staffName(i.obj.taskDoneBy))}`:''}</div></div>${i.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:`<button class="btn sm" data-a="taskDone" data-v="${i.obj.id}">${_('בוצע','Done')}</button>`}</div>`).join('')}</div>`:empty(_('עוד לא נרשמו משימות. אפשר להוסיף משימה בכל תיעוד או סיכום.','No tasks yet. Add one in any note or summary.'))}</section>
  <section class="card"><div class="card-h"><h2>${_('נושאים שעולים','Recurring topics')}</h2></div>${Object.keys(cnt).length?`<div class="toolbar"><button class="chip ${!f?'on':''}" data-a="ctop" data-v="">${_('הכל','All')}</button>${TOPICS.filter(t=>cnt[t.id]).sort((a,b)=>cnt[b.id]-cnt[a.id]).map(t=>`<button class="chip ${f===t.id?'on':''}" data-a="ctop" data-v="${t.id}">${t[S.lang]} · ${cnt[t.id]}</button>`).join('')}</div><p class="hint">${_('לחיצה על נושא מציגה רק את הרשומות עליו – מכל הצוות.','Tap a topic to see only the entries about it – from the whole team.')}</p>`:empty(_('כשמסמנים נושאים בתיעוד ובסיכומים, הם מתרכזים כאן.','Topics you tag in notes and summaries gather here.'))}</section></div>
@@ -573,6 +573,7 @@ function careThread(p){
  ${hiddenTher&&!P().clinical?`<p class="hint">${hiddenTher} ${_('סיכומים טיפוליים מוסתרים לפי ההרשאה שלך.','therapy summaries are hidden by your access level.')}</p>`:''}`;
 }
 async function exportSums(pid){
+ if(S.role!=='manager'){toast(_('רק המנהל יכול לייצא נתונים של מטופלים.','Only the manager can export patient data.'));return}
  const p=pat(pid);if(!p)return;
  if(!DL){toast(_('שמירת קבצים זמינה כשהעמוד פתוח בתוך Claude או באפליקציה.','Saving files works inside Claude or in the app.'));return}
  const its=careItems(p,true).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
@@ -616,7 +617,7 @@ function vProfile(p){
   const shown=S.tlf==='all'?ev:ev.filter(e=>e.t===S.tlf);
   let lastDay='';
   body=`<div class="toolbar">${Object.keys(f).filter(k=>k!=='inc'||P().incidents).map(k=>`<button class="chip ${S.tlf===k?'on':''}" data-a="tlf" data-v="${k}" aria-pressed="${S.tlf===k}">${f[k]}</button>`).join('')}
-   <span style="flex:1"></span>${!p.archived&&P().incidents?`<button class="btn sm" data-a="incident" data-v="${p.id}">${ic('flag')} ${_('דיווח חריגה','Report incident')}</button>`:''}${!p.archived&&P().daily?`<button class="btn sm primary" data-a="note" data-v="${p.id}">+ ${_('תיעוד','Note')}</button>`:''}${!p.archived&&S.role==='counselor'?`<button class="btn sm" data-a="reportExp" data-v="${p.id}">${_('דיווח הוצאה','Report an expense')}</button>`:''}${P().daily?`<button class="btn sm" data-a="exportSums" data-v="${p.id}">${_('ייצוא סיכומים','Export summaries')}</button>`:''}</div>
+   <span style="flex:1"></span>${!p.archived&&P().incidents?`<button class="btn sm" data-a="incident" data-v="${p.id}">${ic('flag')} ${_('דיווח חריגה','Report incident')}</button>`:''}${!p.archived&&P().daily?`<button class="btn sm primary" data-a="note" data-v="${p.id}">+ ${_('תיעוד','Note')}</button>`:''}${!p.archived&&S.role==='counselor'?`<button class="btn sm" data-a="reportExp" data-v="${p.id}">${_('דיווח הוצאה','Report an expense')}</button>`:''}${S.role==='manager'?`<button class="btn sm" data-a="exportSums" data-v="${p.id}">${_('ייצוא סיכומים','Export summaries')}</button>`:''}</div>
    <section class="card"><div class="tline">${shown.map(e=>{const day=e.date!==lastDay;lastDay=e.date;return`${day?`<div class="tday">${e.date===TD?_('היום','Today'):fmtDate(e.date,{weekday:'long',day:'numeric',month:'short'})}</div>`:''}<div class="tev tev-${e.t}">${e.raw?e.html:`<div class="tsmall"><span class="mono muted">${e.time!=='00:00'?e.time:''}</span> ${e.html}</div>`}</div>`}).join('')||empty(_('אין אירועים להצגה.','Nothing to show.'))}</div>
    ${hidden?lockBox(`${hidden} ${_('סיכומים טיפוליים מוסתרים לפי ההרשאה שלך.','therapy summaries are hidden by your access level.')}`):''}</section>`;
  }else if(S.ptab==='week'){
@@ -1537,7 +1538,7 @@ const A={
  sumOpen:v=>{const[k,id]=v.split(':');if(k==='sum'){S.view='summary';S.sumId=id}else{const n=D.notes.find(x=>x.id===id);if(n){S.view='patients';S.pid=n.pid;S.ptab='care'}}render();setTimeout(()=>{const el=document.getElementById('c_'+v.replace(':','_'));if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'})},50)},
  taskDone:v=>{const n=D.notes.find(x=>x.id===v);if(!n)return;n.taskDone=true;n.taskDoneBy=me();n.taskDoneAt=TD;save();toast(_('המשימה סומנה כבוצעה','Task marked done'))},
  ctop:v=>{S.ctop=v||''},
- exportSums:v=>{exportSums(v);return'keep'},
+ exportSums:v=>{if(S.role==='manager')exportSums(v);return'keep'},
  stage:v=>{const p=pat(v);modal(_('שינוי שלב','Change stage'),`<div class="form">${sel('ns',_('שלב חדש','New stage'),STAGES.map(s=>[s.id,s[S.lang]]),p.stage)}${txt('nn',_('הערה (לא חובה)','Note (optional)'))}</div>`,
   ()=>{const s=val('ns');if(s===p.stage){toast(_('זה השלב הנוכחי','That is the current stage'));return'stay'}p.stage=s;p.history.push({stage:s,date:TD,by:me(),note:val('nn')});return _('השלב עודכן','Stage updated')});return'keep'},
  inRetorno:()=>{modal(_('קבלת מזומן מרטורנו','Cash received from Retorno'),`<div class="form">${num('ya','₪')}${txt('yd',_('פירוט','Details'),_('מזומן מרטורנו','Cash from Retorno'))}<p class="hint">${_('מתווסף למזומן בקופה ולכספי רטורנו.','Adds to cash in hand and to Retorno funds.')}</p></div>`,
@@ -1640,8 +1641,8 @@ const A={
    return _('התשלום נרשם','Payment recorded')});return'keep'},
  cancelRule:()=>{const c=D.settings.cancel;modal(_('כלל תשלום בביטול','Cancellation pay rule'),`<div class="form"><p class="hint">${_('איזה אחוז מהתעריף משולם לאיש הצוות כשפעילות מבוטלת:','What share of the rate the staff member is paid when an activity is cancelled:')}</p><div class="fr">${num('cp1',_('המטופל ביטל %','Patient cancelled %'),c.patient)}${num('cp2',_('איש הצוות / התוכנית ביטלו %','Staff / program cancelled %'),c.staff)}</div>${num('cp3',_('אחר – מזג אוויר, חירום %','Other – weather, emergency %'),c.other)}<p class="hint">${_('הכלל חל על ביטולים מעכשיו. ביטולים קודמים שומרים את העלות שנרשמה.','Applies to cancellations from now on. Earlier ones keep their recorded cost.')}</p></div>`,
   ()=>{const v=[+val('cp1'),+val('cp2'),+val('cp3')];if(!need(v.every(x=>x>=0&&x<=100),_('אחוזים בין 0 ל־100','Percentages between 0 and 100')))return'stay';D.settings.cancel={patient:v[0],staff:v[1],other:v[2]};return _('הכלל נשמר','Rule saved')});return'keep'},
- exportX:()=>{exportExcel();return'keep'},
- exportP:(v,b)=>{exportPdf(b);return'keep'},
+ exportX:()=>{if(S.role==='manager')exportExcel();return'keep'},
+ exportP:(v,b)=>{if(S.role==='manager')exportPdf(b);return'keep'},
  logout:()=>{if(window.RETORNO_SUPA){window.RETORNO_SUPA.signOut();return'keep'}setAdminIn(false);S.viewAs=null;S.view='dashboard';toast(_('יצאת מחשבון המנהל','Signed out of the manager account'))},
  apSess:v=>{const x=findInst(v);const inp=document.querySelector(`.amt[data-key="${v}"]`);const a=inp?+inp.value:NaN;if(!(a>=0)||inp.value===''){toast(_('הזינו סכום לפני האישור','Enter an amount before approving'));return'keep'}
   Object.assign(D.log[x.key],{cost:r2(a),costStatus:'approved',approvedBy:me()});save();toast(_('הפגישה אושרה והעלות נרשמה','Session approved and cost recorded'))},
