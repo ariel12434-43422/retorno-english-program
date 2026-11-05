@@ -1,7 +1,8 @@
 // Sends phone notifications.
 //   audience "managers"            - anyone may ask (used for "needs approval")
 //   audience "counselors" | "all"  - managers only
-//   audience { staff: [ids] }      - managers only (messages to chosen people)
+//   audience { staff: [ids] }      - managers; staff too for app alerts (tag "ntc-" / "sched-")
+//   audience "self"                - the caller's own devices (test notification)
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
 
@@ -10,6 +11,8 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+// the private key as stored may carry extra text or spaces around it: keep only the key itself
+const vapidPrivate = () => { const raw = Deno.env.get("VAPID_PRIVATE_KEY") ?? ""; return (raw.match(/[A-Za-z0-9_-]{40,}/g) ?? []).pop() ?? raw.trim(); };
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
@@ -34,8 +37,9 @@ Deno.serve(async (req) => {
     const p = await req.json();
     const aud = p.audience;
     // staff may notify managers, and may tell the counselor on shift about a schedule change they made
-    const schedNote = aud && Array.isArray(aud.staff) && aud.staff.length === 1 && String(p.tag || "").startsWith("sched-");
-    if (aud !== "managers" && !isAdmin && !schedNote) return json(403, { error: "managers only" });
+    const tag = String(p.tag || "");
+    const appAlert = aud && Array.isArray(aud.staff) && aud.staff.length <= 40 && (tag.startsWith("ntc-") || tag.startsWith("sched-"));
+    if (aud !== "managers" && aud !== "self" && !isAdmin && !appAlert) return json(403, { error: "managers only" });
 
     const { data: links } = await db.from("docs").select("path, body").eq("collection", "links");
     const { data: staffDoc } = await db.from("docs").select("body").eq("path", "meta/staff").maybeSingle();
@@ -44,6 +48,7 @@ Deno.serve(async (req) => {
     const { data: subs } = await db.from("push_subs").select("*");
 
     const targets = (subs ?? []).filter((s: any) => {
+      if (aud === "self") return s.user_id === user.id;
       if (s.user_id === user.id) return false;
       const sid = userStaff.get(s.user_id);
       if (aud === "managers") return admins.has(String(s.email ?? "").toLowerCase()) || roles.get(sid ?? "") === "manager";
@@ -56,7 +61,7 @@ Deno.serve(async (req) => {
     webpush.setVapidDetails(
       Deno.env.get("VAPID_SUBJECT") ?? "https://ariel12434-43422.github.io/retorno-english-program/",
       Deno.env.get("VAPID_PUBLIC_KEY") ?? "BJ9UEI92vgYNkxy3ift5gpz0oTtJAFicFQw6Ej1T9eOztvEE4IUBS8g7xDIg9kXxER-ndvDVyQhdOvplaqTgY0U",
-      Deno.env.get("VAPID_PRIVATE_KEY")!,
+      vapidPrivate(),
     );
     const payload = JSON.stringify({
       title: String(p.title ?? "").slice(0, 120),

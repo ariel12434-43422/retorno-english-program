@@ -16,6 +16,8 @@ function israelNow() {
   return { date: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) };
 }
 const addDays = (d: string, n: number) => { const t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+const vapidPrivate = () => { const raw = Deno.env.get("VAPID_PRIVATE_KEY") ?? ""; return (raw.match(/[A-Za-z0-9_-]{40,}/g) ?? []).pop() ?? raw.trim(); };
+const TASK_TIME = "09:00"; // daily alert for tasks due today
 const hm = (t: string) => { const [a, b] = String(t || "0:0").split(":").map(Number); return (a || 0) * 60 + (b || 0); };
 
 Deno.serve(async (req) => {
@@ -28,6 +30,56 @@ Deno.serve(async (req) => {
     if (!sec?.v || req.headers.get("x-cron-key") !== sec.v) return json(401, { error: "not allowed" });
 
     const now = israelNow();
+    const reqBody = await req.json().catch(() => ({}));
+    const setVapid = () => webpush.setVapidDetails(
+      Deno.env.get("VAPID_SUBJECT") ?? "https://ariel12434-43422.github.io/retorno-english-program/",
+      Deno.env.get("VAPID_PUBLIC_KEY") ?? "BJ9UEI92vgYNkxy3ift5gpz0oTtJAFicFQw6Ej1T9eOztvEE4IUBS8g7xDIg9kXxER-ndvDVyQhdOvplaqTgY0U",
+      vapidPrivate(),
+    );
+    if (reqBody?.test) { setVapid(); return json(200, { keyOk: true, now }); }
+
+    const { data: subsAll } = await db.from("push_subs").select("*");
+    const { data: linksAll } = await db.from("docs").select("path, body").eq("collection", "links");
+    const staffOfUser = new Map<string, string>((linksAll ?? []).map((l: any) => [String(l.path).slice(6), l.body?.staff]));
+    const pushTo = async (staffIds: string[], payload: string) => {
+      let n = 0;
+      for (const s of (subsAll ?? []).filter((x: any) => staffIds.includes(staffOfUser.get(x.user_id) ?? ""))) {
+        try { await webpush.sendNotification(s.sub, payload, { TTL: 3600, urgency: "normal" }); n++; }
+        catch (e: any) { if (e?.statusCode === 404 || e?.statusCode === 410) await db.from("push_subs").delete().eq("endpoint", s.endpoint); }
+      }
+      return n;
+    };
+    // a notice in the app's notification center, so the alert stays until it is read
+    const addNotice = async (to: string[], kind: string, title: string, body: string, link: Record<string, unknown>) => {
+      const id = "n" + crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+      await db.from("docs").upsert({ path: "notices/" + id, collection: "notices", body: { id, to, kind, title, body, link, at: new Date().toISOString(), from: "system" } });
+    };
+    const taskOut: unknown[] = [];
+    // tasks due today: one alert in the morning to whoever the task is for
+    {
+      const diffT = now.min - hm(TASK_TIME);
+      const mark = `mgr/remind/tasks-${now.date}`;
+      if (diffT >= 0 && diffT < WINDOW_MIN) {
+        const { data: done } = await db.from("docs").select("path").eq("path", mark).maybeSingle();
+        if (!done) {
+          setVapid();
+          const { data: tasks } = await db.from("docs").select("body").eq("collection", "tasks").eq("body->>due", now.date);
+          const { data: staffDoc } = await db.from("docs").select("body").eq("path", "meta/staff").maybeSingle();
+          const list: any[] = (staffDoc?.body as any)?.list ?? [];
+          const ofRole = (r: string) => list.filter((s) => s.role === r).map((s) => s.id);
+          for (const t of (tasks ?? []).map((x: any) => x.body).filter((b: any) => b && !b.done)) {
+            const to = String(t.to || "");
+            const ids = to === "me" ? [t.by] : to === "mgr" ? ofRole("manager") : to === "clin" ? ofRole("therapist") : to.startsWith("s:") ? [to.slice(2)] : [];
+            if (!ids.length) continue;
+            const title = "משימה לביצוע היום";
+            await addNotice(ids, "due", title, String(t.text || "").slice(0, 180), { view: "dashboard" });
+            const sent = await pushTo(ids, JSON.stringify({ title, body: String(t.text || "").slice(0, 120), url: "#dashboard", tag: "due-" + t.id }));
+            taskOut.push({ task: t.id, ids, sent });
+          }
+          await db.from("docs").upsert({ path: mark, collection: "mgr/remind", body: { at: new Date().toISOString(), tasks: taskOut.length } });
+        }
+      }
+    }
     const { data: setDoc } = await db.from("docs").select("body").eq("path", "meta/settings").maybeSingle();
     const rem = ((setDoc?.body as any)?.remind) || { day: ["13:00", "16:00"], evening: ["22:00", "08:00"] };
 
@@ -45,7 +97,7 @@ Deno.serve(async (req) => {
         });
       }
     }
-    if (!due.length) return json(200, { due: 0 });
+    if (!due.length) return json(200, { due: 0, tasks: taskOut.length });
 
     const months = [...new Set(due.map((d) => d.date.slice(0, 7)))];
     const { data: rosters } = await db.from("docs").select("path, body").in("path", months.map((m) => "roster/" + m));
@@ -59,11 +111,7 @@ Deno.serve(async (req) => {
     const { data: subs } = await db.from("push_subs").select("*");
     const userStaff = new Map<string, string>((links ?? []).map((l: any) => [String(l.path).slice(6), l.body?.staff]));
 
-    webpush.setVapidDetails(
-      Deno.env.get("VAPID_SUBJECT") ?? "https://ariel12434-43422.github.io/retorno-english-program/",
-      Deno.env.get("VAPID_PUBLIC_KEY") ?? "BJ9UEI92vgYNkxy3ift5gpz0oTtJAFicFQw6Ej1T9eOztvEE4IUBS8g7xDIg9kXxER-ndvDVyQhdOvplaqTgY0U",
-      Deno.env.get("VAPID_PRIVATE_KEY")!,
-    );
+    setVapid();
 
     const out: unknown[] = [];
     for (const d of due) {
@@ -87,6 +135,7 @@ Deno.serve(async (req) => {
             body: last ? "המשמרת מסתיימת בקרוב – לא לשכוח לכתוב סיכום." : "זה זמן טוב לכתוב את סיכום המשמרת עד עכשיו.",
             url: "#summary", tag: `remind-${d.date}-${d.kind}`,
           });
+          await addNotice([staff], "remind", last ? "תזכורת: סיכום משמרת" : "תזכורת: סיכום משמרת – אמצע המשמרת", last ? "המשמרת מסתיימת בקרוב – לא לשכוח לכתוב סיכום." : "זה זמן טוב לכתוב את סיכום המשמרת עד עכשיו.", { view: "summary" });
           for (const s of (subs ?? []).filter((x: any) => userStaff.get(x.user_id) === staff)) {
             try { await webpush.sendNotification(s.sub, payload, { TTL: 3600, urgency: "normal" }); sent++; }
             catch (e: any) { if (e?.statusCode === 404 || e?.statusCode === 410) await db.from("push_subs").delete().eq("endpoint", s.endpoint); }

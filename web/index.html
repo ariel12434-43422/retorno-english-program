@@ -429,6 +429,29 @@ table.roster tr.sat td{background:var(--surface-2)}
 .consln{margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 
 .incacts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+
+/* notification center + pop-up */
+.bell{position:relative}
+.bell .badge{position:absolute;top:-4px;inset-inline-end:-4px}
+.ntclist{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.ntc{display:grid;gap:2px;text-align:start;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
+.ntc.new{background:var(--accent-soft);border-color:var(--accent)}
+.ntc-k{font-size:.75rem;color:var(--muted);font-weight:700}
+.ntc-t{font-weight:700}
+.ntc-b{font-size:.9rem}
+.ntc-s{font-size:.75rem;color:var(--muted)}
+#popn{position:fixed;top:12px;inset-inline:0;z-index:9000;display:flex;justify-content:center;padding:0 16px;pointer-events:none;transform:translateY(-130%);transition:transform .25s ease}
+#popn.show{transform:none}
+.popn-in{pointer-events:auto;max-width:460px;width:100%;background:var(--card);color:var(--ink);border:1px solid var(--accent);border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.22);padding:12px 14px;display:grid;gap:4px}
+.popn-k{font-size:.78rem;color:var(--accent);font-weight:700;display:flex;align-items:center;gap:6px}
+.popn-k svg{width:16px;height:16px}
+.popn-t{font-weight:700}
+.popn-b{font-size:.9rem;color:var(--muted)}
+.popn-a{display:flex;gap:8px;margin-top:4px}
+.boxcard .kpis.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}
+@media (max-width:640px){.boxcard .kpis.three{grid-template-columns:1fr}}
+.xfb label{font-size:.8rem}
+@media (prefers-reduced-motion:reduce){#popn{transition:none}}
 </style>
 
 <div id="app"></div>
