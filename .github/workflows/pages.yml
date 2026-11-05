@@ -20,7 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: New cache name per release, so installed apps pick up the update
-        run: sed -i "s|const CACHE = 'retorno-v1'|const CACHE = 'retorno-${GITHUB_SHA::8}'|" web/sw.js
+        run: |
+          sed -i "s|const CACHE = 'retorno-v1'|const CACHE = 'retorno-${GITHUB_SHA::8}'|" web/sw.js
+          sed -i "s|'__BUILD__'|'$(TZ=Asia/Jerusalem date +%d.%m.%Y-%H:%M) · ${GITHUB_SHA::7}'|" web/app.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

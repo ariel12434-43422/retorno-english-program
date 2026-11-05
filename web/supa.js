@@ -180,7 +180,14 @@
   const b64 = s => { const p = '='.repeat((4 - (s.length % 4)) % 4); const r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...r].map(c => c.charCodeAt(0))); };
   const pushOk = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && !!CFG.vapidPublicKey;
   let swReg = null;
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then(r => (swReg = r)).catch(() => {});
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => { swReg = r; r.update().catch(() => {}); }).catch(() => {});
+    // a new version took over: reload once so the screen shows it
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (reloaded) return; reloaded = true; location.reload(); });
+    // coming back to the app: look for a new version
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && swReg) swReg.update().catch(() => {}); });
+  }
   // the notification key comes from the server, so it can never be pasted wrong; a phone that subscribed with an
   // older key is re-registered automatically the next time the app opens
   let serverKey = null;
