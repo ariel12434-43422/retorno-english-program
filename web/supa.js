@@ -181,19 +181,39 @@
   const pushOk = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && !!CFG.vapidPublicKey;
   let swReg = null;
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then(r => (swReg = r)).catch(() => {});
+  // the notification key comes from the server, so it can never be pasted wrong; a phone that subscribed with an
+  // older key is re-registered automatically the next time the app opens
+  let serverKey = null;
+  const getKey = async () => {
+    if (serverKey) return serverKey;
+    try { const { data } = await sb.functions.invoke('notify', { body: { getKey: true } }); if (data && data.publicKey) serverKey = data.publicKey; } catch (e) {}
+    return serverKey || CFG.vapidPublicKey;
+  };
+  const keyOf = sub => { try { const k = sub.options && sub.options.applicationServerKey; if (!k) return ''; return btoa(String.fromCharCode(...new Uint8Array(k))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); } catch (e) { return ''; } };
+  async function subscribe(force) {
+    const reg = swReg || (await navigator.serviceWorker.ready);
+    const key = await getKey();
+    let sub = await reg.pushManager.getSubscription();
+    if (sub && (force || keyOf(sub) !== key)) { try { await sub.unsubscribe(); } catch (e) {} sub = null; }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key) });
+    const j = sub.toJSON();
+    const { error } = await sb.from('push_subs').upsert({ endpoint: j.endpoint, user_id: session.user.id, email: (session.user.email || '').toLowerCase(), sub: j });
+    if (error) return false;
+    localStorage.setItem('retorno-push', '1'); return true;
+  }
   window.RETORNO_PUSH = pushOk ? {
     state: () => (Notification.permission === 'granted' && localStorage.getItem('retorno-push') === '1' ? 'on' : 'off'),
     async enable() {
       try {
         const perm = await Notification.requestPermission(); if (perm !== 'granted') return false;
-        const reg = swReg || (await navigator.serviceWorker.ready);
-        const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(CFG.vapidPublicKey) }));
-        const j = sub.toJSON();
-        const { error } = await sb.from('push_subs').upsert({ endpoint: j.endpoint, user_id: session.user.id, email: (session.user.email || '').toLowerCase(), sub: j });
-        if (error) return false;
-        localStorage.setItem('retorno-push', '1'); return true;
+        return await subscribe(false);
       } catch (e) { console.warn(e); return false; }
     },
+    // on every start: keep this phone registered with the current key
+    async refresh() {
+      try { if (Notification.permission === 'granted' && localStorage.getItem('retorno-push') === '1' && session) await subscribe(false); } catch (e) { console.warn(e); }
+    },
   } : null;
+  loggedIn.then(() => setTimeout(() => { if (window.RETORNO_PUSH) window.RETORNO_PUSH.refresh(); }, 2500));
   window.RETORNO_NOTIFY = p => { if (session) sb.functions.invoke('notify', { body: p }).catch(() => {}); };
 })();

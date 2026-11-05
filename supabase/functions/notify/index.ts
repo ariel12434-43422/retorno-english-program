@@ -11,8 +11,13 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-// the private key as stored may carry extra text or spaces around it: keep only the key itself
-const vapidPrivate = () => { const raw = Deno.env.get("VAPID_PRIVATE_KEY") ?? ""; return (raw.match(/[A-Za-z0-9_-]{40,}/g) ?? []).pop() ?? raw.trim(); };
+// the notification keys live in the database (app_secrets), created once by the server: nobody has to copy them
+async function vapidKeys(db: any): Promise<{ publicKey: string; privateKey: string }> {
+  const read = async () => { const { data } = await db.from("app_secrets").select("v").eq("k", "vapid").maybeSingle(); return data?.v ? JSON.parse(data.v) : null; };
+  let k = await read();
+  if (!k) { const g = webpush.generateVAPIDKeys(); await db.from("app_secrets").upsert({ k: "vapid", v: JSON.stringify(g) }, { onConflict: "k", ignoreDuplicates: true }); k = await read(); }
+  return k;
+}
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
@@ -22,6 +27,9 @@ Deno.serve(async (req) => {
     const url = Deno.env.get("SUPABASE_URL")!;
     const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const p = await req.json();
+    const keys = await vapidKeys(createClient(url, service));
+    if (p.getKey) return json(200, { publicKey: keys.publicKey });
     const caller = createClient(url, anon, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
     const { data: { user } } = await caller.auth.getUser();
     if (!user) return json(401, { error: "not signed in" });
@@ -34,7 +42,6 @@ Deno.serve(async (req) => {
     const { data: mem } = await db.from("app_members").select("email").ilike("email", email);
     if (!isAdmin && !(mem ?? []).length) return json(403, { error: "not a member" });
 
-    const p = await req.json();
     const aud = p.audience;
     // staff may notify managers, and may tell the counselor on shift about a schedule change they made
     const tag = String(p.tag || "");
@@ -58,11 +65,7 @@ Deno.serve(async (req) => {
       return false;
     });
 
-    webpush.setVapidDetails(
-      Deno.env.get("VAPID_SUBJECT") ?? "https://ariel12434-43422.github.io/retorno-english-program/",
-      Deno.env.get("VAPID_PUBLIC_KEY") ?? "BJ9UEI92vgYNkxy3ift5gpz0oTtJAFicFQw6Ej1T9eOztvEE4IUBS8g7xDIg9kXxER-ndvDVyQhdOvplaqTgY0U",
-      vapidPrivate(),
-    );
+    webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") ?? "https://ariel12434-43422.github.io/retorno-english-program/", keys.publicKey, keys.privateKey);
     const payload = JSON.stringify({
       title: String(p.title ?? "").slice(0, 120),
       body: String(p.body ?? "").slice(0, 300),
@@ -76,10 +79,11 @@ Deno.serve(async (req) => {
         await webpush.sendNotification(s.sub, payload, { TTL: 86400, urgency: p.urgent ? "high" : "normal" });
         sent++;
       } catch (e: any) {
-        if (e?.statusCode === 404 || e?.statusCode === 410) await db.from("push_subs").delete().eq("endpoint", s.endpoint);
+        // gone, or registered with an older key: drop it; the phone re-registers itself when the app opens
+        if ([400, 403, 404, 410].includes(e?.statusCode)) await db.from("push_subs").delete().eq("endpoint", s.endpoint);
       }
     }
-    return json(200, { sent, targets: targets.length });
+    return json(200, { sent, targets: targets.length, failed: targets.length - sent });
   } catch (e) {
     return json(500, { error: String(e) });
   }

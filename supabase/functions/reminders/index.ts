@@ -16,7 +16,13 @@ function israelNow() {
   return { date: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) };
 }
 const addDays = (d: string, n: number) => { const t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
-const vapidPrivate = () => { const raw = Deno.env.get("VAPID_PRIVATE_KEY") ?? ""; return (raw.match(/[A-Za-z0-9_-]{40,}/g) ?? []).pop() ?? raw.trim(); };
+// the notification keys live in the database (app_secrets), created once by the server: nobody has to copy them
+async function vapidKeys(db: any): Promise<{ publicKey: string; privateKey: string }> {
+  const read = async () => { const { data } = await db.from("app_secrets").select("v").eq("k", "vapid").maybeSingle(); return data?.v ? JSON.parse(data.v) : null; };
+  let k = await read();
+  if (!k) { const g = webpush.generateVAPIDKeys(); await db.from("app_secrets").upsert({ k: "vapid", v: JSON.stringify(g) }, { onConflict: "k", ignoreDuplicates: true }); k = await read(); }
+  return k;
+}
 const TASK_TIME = "09:00"; // daily alert for tasks due today
 const hm = (t: string) => { const [a, b] = String(t || "0:0").split(":").map(Number); return (a || 0) * 60 + (b || 0); };
 
@@ -31,12 +37,9 @@ Deno.serve(async (req) => {
 
     const now = israelNow();
     const reqBody = await req.json().catch(() => ({}));
-    const setVapid = () => webpush.setVapidDetails(
-      Deno.env.get("VAPID_SUBJECT") ?? "https://ariel12434-43422.github.io/retorno-english-program/",
-      Deno.env.get("VAPID_PUBLIC_KEY") ?? "BJ9UEI92vgYNkxy3ift5gpz0oTtJAFicFQw6Ej1T9eOztvEE4IUBS8g7xDIg9kXxER-ndvDVyQhdOvplaqTgY0U",
-      vapidPrivate(),
-    );
-    if (reqBody?.test) { setVapid(); return json(200, { keyOk: true, now }); }
+    const keys = await vapidKeys(db);
+    const setVapid = () => webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") ?? "https://ariel12434-43422.github.io/retorno-english-program/", keys.publicKey, keys.privateKey);
+    if (reqBody?.test) { setVapid(); const { count } = await db.from("push_subs").select("*", { count: "exact", head: true }); return json(200, { keyOk: true, now, phones: count }); }
 
     const { data: subsAll } = await db.from("push_subs").select("*");
     const { data: linksAll } = await db.from("docs").select("path, body").eq("collection", "links");
@@ -45,7 +48,7 @@ Deno.serve(async (req) => {
       let n = 0;
       for (const s of (subsAll ?? []).filter((x: any) => staffIds.includes(staffOfUser.get(x.user_id) ?? ""))) {
         try { await webpush.sendNotification(s.sub, payload, { TTL: 3600, urgency: "normal" }); n++; }
-        catch (e: any) { if (e?.statusCode === 404 || e?.statusCode === 410) await db.from("push_subs").delete().eq("endpoint", s.endpoint); }
+        catch (e: any) { if ([400, 403, 404, 410].includes(e?.statusCode)) await db.from("push_subs").delete().eq("endpoint", s.endpoint); }
       }
       return n;
     };
@@ -138,7 +141,7 @@ Deno.serve(async (req) => {
           await addNotice([staff], "remind", last ? "תזכורת: סיכום משמרת" : "תזכורת: סיכום משמרת – אמצע המשמרת", last ? "המשמרת מסתיימת בקרוב – לא לשכוח לכתוב סיכום." : "זה זמן טוב לכתוב את סיכום המשמרת עד עכשיו.", { view: "summary" });
           for (const s of (subs ?? []).filter((x: any) => userStaff.get(x.user_id) === staff)) {
             try { await webpush.sendNotification(s.sub, payload, { TTL: 3600, urgency: "normal" }); sent++; }
-            catch (e: any) { if (e?.statusCode === 404 || e?.statusCode === 410) await db.from("push_subs").delete().eq("endpoint", s.endpoint); }
+            catch (e: any) { if ([400, 403, 404, 410].includes(e?.statusCode)) await db.from("push_subs").delete().eq("endpoint", s.endpoint); }
           }
           if (!sent) skipped = "no phone with notifications on";
         }
