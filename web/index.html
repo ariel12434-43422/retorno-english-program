@@ -452,6 +452,20 @@ table.roster tr.sat td{background:var(--surface-2)}
 @media (max-width:640px){.boxcard .kpis.three{grid-template-columns:1fr}}
 .xfb label{font-size:.8rem}
 @media (prefers-reduced-motion:reduce){#popn{transition:none}}
+
+/* LeadManager leads */
+.lmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.lmc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:8px;min-width:0}
+.lmc.new{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.lmc.focus{outline:3px solid var(--accent)}
+.lmc-h{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.lmc .nm{font-weight:700;font-size:1.05rem}
+.lmc-c,.lmc-a{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lmc-c svg{width:16px;height:16px}
+.lmlog{display:grid;gap:4px;font-size:.88rem;border-top:1px dashed var(--line);padding-top:6px}
+.lmq{flex:1;min-width:160px}
+.copyrow{display:flex;gap:6px;margin:8px 0}.copyrow input{flex:1;min-width:0;font-size:.8rem}
+.steps{margin:8px 0;padding-inline-start:20px;display:grid;gap:4px;font-size:.9rem}
 </style>
 
 <div id="app"></div>

@@ -29,6 +29,12 @@ Deno.serve(async (req) => {
     if (!(adm ?? []).length) return json(403, { error: "managers only" });
 
     const p = await req.json();
+    // the LeadManager sending address (with its secret key), for the manager to paste into LeadManager
+    if (p.action === "leadUrl") {
+      const { data: sec } = await db.from("app_secrets").select("v").eq("k", "leads").maybeSingle();
+      if (!sec?.v) return json(404, { error: "run the leads setup first" });
+      return json(200, { url: `${url}/functions/v1/lead-in?k=${sec.v}` });
+    }
     const sid = String(p.staff_id ?? "");
     if (!sid) return json(400, { error: "staff_id missing" });
 

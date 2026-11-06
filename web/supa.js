@@ -167,6 +167,13 @@
       if (data && data.error) throw new Error(data.error);
       return data;
     },
+    // manager only: the LeadManager sending address (with its secret key)
+    async leadUrl() {
+      const { data, error } = await sb.functions.invoke('staff-accounts', { body: { action: 'leadUrl', staff_id: 'x' } });
+      if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch (e) {} throw new Error(m); }
+      if (!data || !data.url) throw new Error((data && data.error) || 'no address');
+      return data.url;
+    },
     async removeAccount(staffId) { await sb.functions.invoke('staff-accounts', { body: { action: 'remove', staff_id: staffId } }); },
     async changeMyPassword(pw) { const { error } = await sb.auth.updateUser({ password: pw }); if (error) throw error; },
     async importDocs(map, onProgress) {

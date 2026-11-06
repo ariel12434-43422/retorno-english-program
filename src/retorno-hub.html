@@ -435,6 +435,20 @@ table.roster tr.sat td{background:var(--surface-2)}
 @media (max-width:640px){.boxcard .kpis.three{grid-template-columns:1fr}}
 .xfb label{font-size:.8rem}
 @media (prefers-reduced-motion:reduce){#popn{transition:none}}
+
+/* LeadManager leads */
+.lmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.lmc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:8px;min-width:0}
+.lmc.new{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.lmc.focus{outline:3px solid var(--accent)}
+.lmc-h{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.lmc .nm{font-weight:700;font-size:1.05rem}
+.lmc-c,.lmc-a{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lmc-c svg{width:16px;height:16px}
+.lmlog{display:grid;gap:4px;font-size:.88rem;border-top:1px dashed var(--line);padding-top:6px}
+.lmq{flex:1;min-width:160px}
+.copyrow{display:flex;gap:6px;margin:8px 0}.copyrow input{flex:1;min-width:0;font-size:.8rem}
+.steps{margin:8px 0;padding-inline-start:20px;display:grid;gap:4px;font-size:.9rem}
 </style>
 
 <div id="app"></div>
@@ -476,7 +490,7 @@ const PERM={
  counselor:{views:['dashboard','messages','tasks','roster','schedule','patients','summary','finance','staff'],clinical:true,daily:true,finance:true,incidents:true},
  therapist:{views:['dashboard','messages','schedule','patients'],clinical:true,daily:true,finance:false,incidents:true},
  admissions:{views:['leads','messages','schedule'],clinical:false,daily:false,finance:false,incidents:false}};
-const VIEWS={dashboard:{he:'בית',en:'Home',i:'grid'},approvals:{he:'אישורים',en:'Approvals',i:'check'},tasks:{he:'משימות',en:'Tasks',i:'list'},messages:{he:'הודעות',en:'Messages',i:'bell'},roster:{he:'משמרות',en:'Roster',i:'clock'},schedule:{he:'לו״ז',en:'Schedule',i:'cal'},patients:{he:'מטופלים',en:'Patients',i:'users'},summary:{he:'סיכום יום',en:'Daily summary',i:'pen'},finance:{he:'כספים',en:'Finance',i:'wallet'},staff:{he:'צוות',en:'Staff',i:'badge'},leads:{he:'פניות',en:'Leads',i:'funnel'},reports:{he:'דוחות',en:'Reports',i:'chart'}};
+const VIEWS={dashboard:{he:'בית',en:'Home',i:'grid'},approvals:{he:'אישורים',en:'Approvals',i:'check'},tasks:{he:'משימות',en:'Tasks',i:'list'},messages:{he:'הודעות',en:'Messages',i:'bell'},roster:{he:'משמרות',en:'Roster',i:'clock'},schedule:{he:'לו״ז',en:'Schedule',i:'cal'},patients:{he:'מטופלים',en:'Patients',i:'users'},summary:{he:'סיכום יום',en:'Daily summary',i:'pen'},finance:{he:'כספים',en:'Finance',i:'wallet'},staff:{he:'צוות',en:'Staff',i:'badge'},leads:{he:'לידים',en:'Leads',i:'funnel'},reports:{he:'דוחות',en:'Reports',i:'chart'}};
 const LEADST=[{id:'new',he:'חדשה',en:'New'},{id:'contact',he:'בקשר',en:'In contact'},{id:'assess',he:'הערכה',en:'Assessment'},{id:'approved',he:'אושר',en:'Approved'},{id:'admitted',he:'נקלט',en:'Admitted'}];
 const ICON={
  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
@@ -485,7 +499,7 @@ const ICON={
  pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
  wallet:'<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/>',
  badge:'<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 17c.8-1.8 2.2-2.7 4-2.7s3.2.9 4 2.7"/>',
- funnel:'<path d="M3 4h18l-7 8v6l-4 2v-8z"/>',
+ phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',funnel:'<path d="M3 4h18l-7 8v6l-4 2v-8z"/>',
  chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
  lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
@@ -673,7 +687,8 @@ function savePrefs(){try{localStorage.setItem(PKEY,JSON.stringify({lang:S.lang,r
 
 /* ---------- domain ---------- */
 const me=()=>{if(SH.on){if(S.viewAs){const s=D.staff.find(x=>x.role===S.viewAs);return s?s.id:''}return myStaffId()||''}return AS[S.role]};
-const P=()=>PERM[S.role];
+const canLeads=()=>S.role==='manager'||(!!D&&(D.leadAccess||[]).includes(me()));
+const P=()=>{const b=PERM[S.role];if(b&&!b.views.includes('leads')&&canLeads())return{...b,views:[...b.views,'leads']};return b};
 const staffBy=id=>D.staff.find(s=>s.id===id);
 const staffName=id=>{const s=staffBy(id);return s?nm(s.name):(id||'')};
 const pat=id=>D.patients.find(p=>p.id===id);
@@ -1371,9 +1386,46 @@ function repCalc(){
   <div class="fr">${inp('revUsd',_('תשלום לחודש טיפול $','Payment per treatment month $'))}${inp('fx',_('שער דולר','Exchange rate'),0.01)}</div>
   <p class="hint">${_('ברירות המחדל מחושבות מהלו״ז ומהתעריפים שהגדרת.','Defaults are calculated from the schedule and the rates you set.')}</p></div></section></div>`;
 }
+/* ---------- leads from LeadManager: in automatically, an alert on each, handled here ---------- */
+const LMST=[{id:'new',he:'חדש',en:'New',c:'bad'},{id:'progress',he:'בטיפול',en:'In progress',c:'warn'},{id:'callback',he:'לחזור אליו',en:'Call back',c:'warn'},{id:'noanswer',he:'לא ענה',en:'No answer',c:'warn'},{id:'done',he:'טופל',en:'Handled',c:'ok'},{id:'junk',he:'לא רלוונטי',en:'Not relevant',c:'done'}];
+const lmSt=id=>LMST.find(x=>x.id===id)||LMST[0];
+const lmNew=()=>(D.lm||[]).filter(l=>l.st==='new').length;
+const waNum=ph=>{let d=String(ph||'').replace(/[^\d+]/g,'');if(d.startsWith('+'))return d.slice(1);if(d.startsWith('00'))return d.slice(2);if(d.startsWith('0'))return '972'+d.slice(1);return d};
+function agoTxt(iso){const m=Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/60000));if(m<1)return _('עכשיו','just now');if(m<60)return`${_('לפני','')} ${m} ${_('דק׳','min ago')}`;const h=Math.round(m/60);if(h<24)return`${_('לפני','')} ${h} ${_('שע׳','h ago')}`;return fmtDate(iso.slice(0,10),{day:'numeric',month:'short'})}
+function lmCard(l){const st=lmSt(l.st);const extra=Object.entries(l.fields||{}).filter(([k,v])=>v&&String(v).trim()&&!/^(k|ping|test)$/.test(k));
+ return`<article class="lmc ${l.st==='new'?'new':''} ${S.lmOpen===l.id?'focus':''}" id="lm_${l.id}">
+ <div class="lmc-h"><div><div class="nm" dir="auto">${esc(l.name||_('ללא שם','No name'))}${l.test?` <span class="chip">${_('בדיקה','Test')}</span>`:''}</div><div class="s">${esc([l.channel,l.campaign].filter(Boolean).join(' · ')||'LeadManager')} · ${agoTxt(l.at)}${l.lmDate?` · ${esc(l.lmDate)}`:''}</div></div><span class="pill ${st.c}">${st[S.lang]}</span></div>
+ ${l.message?`<div class="note-b" dir="auto">${esc(l.message)}</div>`:''}
+ <div class="lmc-c">${l.phone?`<a class="btn sm primary" href="tel:${esc(l.phone.replace(/[^\d+]/g,''))}" data-a="lmCall" data-v="${l.id}">${ic('phone')} <bdi dir="ltr">${esc(l.phone)}</bdi></a><a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/${waNum(l.phone)}">WhatsApp</a>`:''}${l.email?`<a class="btn sm ghost" href="mailto:${esc(l.email)}"><bdi dir="ltr">${esc(l.email)}</bdi></a>`:''}</div>
+ ${l.owner?`<div class="s">${_('מטפל/ת בליד','Handled by')}: <b>${esc(staffName(l.owner))}</b>${l.next?` · ${_('לחזור ב','Call back on')} ${fmtDate(l.next)}`:''}</div>`:''}
+ ${(l.log||[]).length?`<div class="lmlog">${l.log.slice().reverse().slice(0,4).map(x=>`<div><span class="s">${esc(staffName(x.by))} · ${agoTxt(x.at)}</span> <span dir="auto">${esc(x.text)}</span></div>`).join('')}</div>`:''}
+ <div class="lmc-a"><select data-c="lmst" data-v="${l.id}" aria-label="${_('סטטוס','Status')}">${LMST.map(x=>`<option value="${x.id}" ${x.id===l.st?'selected':''}>${x[S.lang]}</option>`).join('')}</select>${!l.owner?`<button class="btn sm" data-a="lmTake" data-v="${l.id}">${_('לקחתי','I’ll take it')}</button>`:''}<button class="btn sm ghost" data-a="lmNote" data-v="${l.id}">${_('תיעוד שיחה','Log a call')}</button>${S.role==='manager'&&!l.pipe?`<button class="btn sm ghost" data-a="lmPipe" data-v="${l.id}">${_('לתהליך קליטה','To admissions')}</button>`:''}</div>
+ ${extra.length?`<details><summary>${_('כל הפרטים מליד מנג׳ר','All LeadManager details')}</summary><dl class="kv">${extra.map(([k,v])=>`<dt dir="auto">${esc(k)}</dt><dd dir="auto">${esc(v)}</dd>`).join('')}</dl></details>`:''}</article>`}
+function lmInbox(){
+ const f=S.lmf||'open',q=(S.lmq||'').trim().toLowerCase();const all=(D.lm||[]).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+ const list=all.filter(l=>f==='all'||(f==='open'?!['done','junk'].includes(l.st):l.st===f)).filter(l=>!q||[l.name,l.phone,l.email,l.message,l.campaign].join(' ').toLowerCase().includes(q));
+ const cnt=id=>all.filter(l=>id==='open'?!['done','junk'].includes(l.st):l.st===id).length;
+ return`<div class="toolbar">${[['open',_('פתוחים','Open')],['new',_('חדשים','New')],['callback',_('לחזור','Call back')],['done',_('טופלו','Handled')],['all',_('הכל','All')]].map(([id,t])=>`<button class="chip ${f===id?'on':''}" data-a="lmf" data-v="${id}">${t} · ${id==='all'?all.length:cnt(id)}</button>`).join('')}<input class="lmq" data-c="lmq" placeholder="${_('חיפוש שם / טלפון','Search name / phone')}" value="${esc(S.lmq||'')}"></div>
+ <div class="lmgrid">${list.map(lmCard).join('')||`<section class="card">${empty(all.length?_('אין לידים בסינון הזה.','No leads in this filter.'):_('עוד לא נכנסו לידים. ברגע שליד מנג׳ר ישלח ליד – הוא יופיע כאן ותקבלו התראה.','No leads yet. As soon as LeadManager sends one it appears here and you get an alert.'))}</section>`}</div>
+ ${S.role==='manager'?lmSettings():''}`;
+}
+function lmSettings(){
+ const acc=D.leadAccess||[];
+ return`<section class="card"><details ${(D.lm||[]).length?'':'open'}><summary><b>${_('חיבור לליד מנג׳ר והרשאות','LeadManager connection and access')}</b></summary>
+ <ol class="steps"><li>${_('לוחצים “הצגת כתובת החיבור” ומעתיקים אותה.','Tap “Show the connection address” and copy it.')}</li><li>${_('בליד מנג׳ר: הגדרות ← דיוור ← לשונית שידור ← הוספת חוק. סוג: ליד חדש בחשבון; שיטה: Post; תוכן: JSON; “צור תבנית ברירת מחדל”; מדביקים את הכתובת בשדה הקישור; שומרים.','In LeadManager: Settings → Mailing → Transmission tab → add a rule. New lead in the account; method Post; content JSON; “create default template”; paste the address into the link field; save.')}</li><li>${_('לוחצים “שליחת ליד בדיקה” כדי לראות שהכל עובד.','Tap “Send a test lead” to see it all works.')}</li></ol>
+ <div class="toolbar"><button class="btn sm" data-a="lmUrl">${_('הצגת כתובת החיבור','Show the connection address')}</button><button class="btn sm ghost" data-a="lmTest">${_('שליחת ליד בדיקה','Send a test lead')}</button></div><div id="lmurl"></div>
+ <p class="hint">${_('הכתובת כוללת מפתח סודי – לא לשתף אותה מחוץ לליד מנג׳ר.','The address holds a secret key – do not share it outside LeadManager.')}</p>
+ <div class="f"><span class="lab">${_('מי רואה את הלידים (בנוסף למנהל)','Who sees the leads (besides the manager)')}</span><div class="checks">${D.staff.filter(s=>s.role!=='manager').map(s=>`<label><input type="checkbox" data-c="lmacc" value="${s.id}" ${acc.includes(s.id)?'checked':''}>${esc(nm(s.name))}</label>`).join('')}</div></div></details></section>`;
+}
 function vLeads(){
+ const tabs=[...(canLeads()?[['in',`${_('לידים מליד מנג׳ר','LeadManager leads')}${lmNew()?` (${lmNew()})`:''}`]]:[]),...(S.role==='manager'||S.role==='admissions'?[['pipe',_('תהליך קליטה','Admissions pipeline')]]:[])];
+ if(!tabs.find(t=>t[0]===S.ltab))S.ltab=tabs[0][0];
+ const head=`<div class="page-h"><div><p class="eyebrow">${_('ליד חדש מגיע לכאן אוטומטית, עם התראה לטלפון','New leads arrive here automatically, with a phone alert')}</p><h1>${_('לידים','Leads')}</h1></div></div>${tabs.length>1?`<div class="tabs" role="tablist">${tabs.map(([id,t])=>`<button class="tab ${S.ltab===id?'on':''}" role="tab" aria-selected="${S.ltab===id}" data-a="ltab" data-v="${id}">${t}</button>`).join('')}</div>`:''}`;
+ if(S.ltab==='in'){setTimeout(()=>{if(S.lmOpen){const el=document.getElementById('lm_'+S.lmOpen);if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'});S.lmOpen=null}},60);return head+lmInbox()}
+ return head+vLeadsPipe();
+}
+function vLeadsPipe(){
  return`<div class="page-h"><div><p class="eyebrow">${_('מעקב מפנייה ועד קליטה','From first contact to admission')}</p><h1>${_('פניות וקליטה','Leads & admissions')}</h1></div><div class="acts"><button class="btn primary" data-a="addLead">+ ${_('פנייה חדשה','New lead')}</button></div></div>
- <div class="banner">${_('בגרסה המלאה פניות ייכנסו אוטומטית מ־LeadManager, וכשמטופל נקלט כל הפרטים עוברים לפרופיל שלו בלי הקלדה חוזרת.','In the full version, leads will flow in from LeadManager, and on admission all details carry over to the patient profile without retyping.')}</div>
  <div class="kan">${LEADST.map((c,ci)=>{const ls=D.leads.filter(l=>l.status===c.id);return`<div class="col"><div class="col-h"><span>${c[S.lang]}</span><span class="chip">${ls.length}</span></div>
   ${ls.map(l=>`<div class="lead"><div class="nm">${esc(l.name)}</div><div class="s">${esc(l.country)} · ${esc(l.source)}</div>
    ${l.next?`<div class="fu ${l.next<TD?'over':''}">${l.next<TD?_('באיחור','Overdue'):fmtDate(l.next)} · <span dir="auto">${esc(nm(l.todo))}</span></div>`:''}
@@ -1388,22 +1440,23 @@ function vLeads(){
  attendance at the same time do not overwrite each other. Manager-only data lives under mgr/,
  which the store hides from everyone below Editor. */
 const SH={on:false,db:null,user:null,uid:null,admin:false,owner:false,ready:false,loaded:{},cache:{},synced:{},q:{},pending:false,links:{},err:null};
-const COLS=['meta','patients','notes','notesarch','incidents','summaries','tasks','reports','messages','reads','notices','requests','shifts','leads','log','overrides','roster','links'];
+const COLS=['meta','patients','notes','notesarch','incidents','summaries','tasks','reports','messages','reads','notices','lm','requests','shifts','leads','log','overrides','roster','links'];
 const MCOLS=['mgr/data/comp','mgr/data/fees','mgr/data/payments','mgr/data/secure','mgr/data/tx'];
-const ITEMS=['patients','notes','incidents','summaries','tasks','requests','shifts','leads','messages','reads','notices'];
+const ITEMS=['patients','notes','incidents','summaries','tasks','requests','shifts','leads','messages','reads','notices','lm'];
 const DARR=ITEMS.concat(['tx','payments','cigSettlements']);
 // what staff may see of an expense they reported: no allocations, so no patient balances
 const reportView=x=>({id:x.id,kind:'exp',report:true,date:x.date,method:x.method,amount:x.amount,desc:x.desc,items:x.items||[],forPids:x.forPids||[],note:x.note||'',receipt:x.receipt!==false,by:x.by,status:x.status||'pending',cat:x.cat||'other',moves:[]});
 const MONTHLY=['log','overrides','roster'];
 function stable(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v))return'['+v.map(stable).join(',')+']';return'{'+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}'}
 const clone=o=>JSON.parse(JSON.stringify(o));
-function emptyD(){return{roster:{},tasks:[],settings:{cigPrice:38,kmRate:1.2,fx:3.7,rules:[],cancel:{patient:100,staff:0,other:0},remind:{day:['13:00','16:00'],evening:['22:00','08:00']}},staff:[],patients:[],notes:[],incidents:[],summaries:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},overrides:{},log:{},leads:[],requests:[],shifts:[],payments:[],tx:[],cigSettlements:[],messages:[],reads:[],notices:[]}}
+function emptyD(){return{roster:{},tasks:[],settings:{cigPrice:38,kmRate:1.2,fx:3.7,rules:[],cancel:{patient:100,staff:0,other:0},remind:{day:['13:00','16:00'],evening:['22:00','08:00']}},staff:[],patients:[],notes:[],incidents:[],summaries:[],template:{0:[],1:[],2:[],3:[],4:[],5:[],6:[]},overrides:{},log:{},leads:[],requests:[],shifts:[],payments:[],tx:[],cigSettlements:[],messages:[],reads:[],notices:[],lm:[],leadAccess:null}}
 function toDocs(d){
  const o={};
  o['meta/settings']=clone(d.settings);
  o['meta/staff']={list:d.staff.map(s=>{const c={...s};delete c.comp;return c})};
  o['meta/template']={t:d.template};
  o['meta/cig']={list:d.cigSettlements};
+ if(d.leadAccess)o['meta/leadaccess']={staff:d.leadAccess};
  ITEMS.forEach(k=>d[k].forEach(it=>{if(it.arch)return;let b=it;if(k==='patients'){b={...it};delete b.fees}o[k+'/'+it.id]=b}));
  d.tx.forEach(x=>{if(x.report)o['reports/'+x.id]=reportView(x);if(SH.admin&&(!x.report||x.status==='approved'))o['mgr/data/tx/'+x.id]=x});
  const mon=(k,src,keyOf)=>{Object.keys(src).forEach(e=>{const m=keyOf(e);(o[k+'/'+m]||(o[k+'/'+m]={e:{}})).e[e]=src[e]})};
@@ -1423,6 +1476,7 @@ function fromDocs(){
  if(get('meta/staff'))d.staff=clone(get('meta/staff').list||[]);
  if(get('meta/template'))d.template={...d.template,...clone(get('meta/template').t||{})};
  if(get('meta/cig'))d.cigSettlements=clone(get('meta/cig').list||[]);
+ if(get('meta/leadaccess'))d.leadAccess=clone(get('meta/leadaccess').staff||[]);
  const comp=(get('mgr/data/comp/all')||{}).map||{};d.staff.forEach(s=>{s.comp=clone(comp[s.id]||{})});
  const txIds=new Set();
  Object.keys(c).sort().forEach(p=>{const[k,id]=p.split('/');const b=c[p];
@@ -1782,7 +1836,7 @@ function schedNotify(date,time,what){
  notice([cid],'sched','📅 '+title,body,{view:'schedule',date});
 }
 /* ---------- notification center: every alert is kept until its reader opens it ---------- */
-const NKIND={sum:{he:'סיכום חדש',en:'New summary',i:'pen'},task:{he:'משימה',en:'Task',i:'check'},due:{he:'מועד משימה',en:'Task due',i:'clock'},appr:{he:'ממתין לאישור',en:'Needs approval',i:'flag'},sched:{he:'שינוי בלו״ז',en:'Schedule change',i:'calendar'},msg:{he:'הודעה',en:'Message',i:'chat'},remind:{he:'תזכורת',en:'Reminder',i:'clock'}};
+const NKIND={lead:{he:'ליד חדש',en:'New lead',i:'funnel'},sum:{he:'סיכום חדש',en:'New summary',i:'pen'},task:{he:'משימה',en:'Task',i:'check'},due:{he:'מועד משימה',en:'Task due',i:'clock'},appr:{he:'ממתין לאישור',en:'Needs approval',i:'flag'},sched:{he:'שינוי בלו״ז',en:'Schedule change',i:'calendar'},msg:{he:'הודעה',en:'Message',i:'chat'},remind:{he:'תזכורת',en:'Reminder',i:'clock'}};
 const staffOfRole=r=>D.staff.filter(s=>s.role===r).map(s=>s.id);
 function notice(to,kind,title,body,link,opt){
  to=[...new Set((to||[]).filter(id=>id&&id!==me()))];if(!to.length)return null;
@@ -1795,7 +1849,7 @@ const unreadNotices=()=>{const r=readMap();return myNotices().filter(n=>!r['ntc:
 function bellBtn(){const u=unreadNotices().length;return`<button class="btn sm ghost bell" data-a="bell" aria-label="${_('התראות','Notifications')}${u?` – ${u} ${_('חדשות','new')}`:''}">${ic('bell')}${u?`<i class="badge">${u}</i>`:''}</button>`}
 function noticeRow(n,r){return`<button class="ntc ${r['ntc:'+n.id]?'':'new'}" data-a="ntcOpen" data-v="${n.id}"><span class="ntc-k">${(NKIND[n.kind]||NKIND.msg)[S.lang]}</span><span class="ntc-t" dir="auto">${esc(n.title)}</span>${n.body?`<span class="ntc-b" dir="auto">${esc(trim(n.body,180))}</span>`:''}<span class="ntc-s">${n.from&&n.from!=='system'?esc(staffName(n.from))+' · ':''}${fmtDate(n.at.slice(0,10),{day:'numeric',month:'short'})} ${n.at.slice(11,16)?new Date(n.at).toLocaleTimeString(S.lang==='he'?'he-IL':'en-GB',{hour:'2-digit',minute:'2-digit'}):''}</span></button>`}
 function openNotice(n){
- const l=n.link||{};if(l.view)S.view=l.view;if(l.pid){S.pid=l.pid;if(l.ptab)S.ptab=l.ptab}if(l.sumId)S.sumId=l.sumId;if(l.date)S.date=l.date;
+ const l=n.link||{};if(l.view)S.view=l.view;if(l.lead){S.ltab='in';S.lmOpen=l.lead;S.lmf='all'}if(l.pid){S.pid=l.pid;if(l.ptab)S.ptab=l.ptab}if(l.sumId)S.sumId=l.sumId;if(l.date)S.date=l.date;
  render();if(l.key)setTimeout(()=>{const el=document.getElementById('c_'+l.key.replace(':','_'));if(el&&el.scrollIntoView)el.scrollIntoView({block:'center'})},60);
 }
 // a pop-up for alerts that arrive while the app is open; they stay in the notification center until read
@@ -1834,7 +1888,7 @@ function render(){
  const root=document.documentElement;root.lang=S.lang;root.dir=S.lang==='he'?'rtl':'ltr';
  if(!P().views.includes(S.view))S.view=P().views[0];
  const locked=S.role==='manager'&&!adminIn();const pc=S.role==='manager'&&!locked?pendingAll().n:0;
- const nav=locked?'':P().views.map(v=>`<button class="nav-i ${S.view===v?'on':''}" data-a="nav" data-v="${v}" ${S.view===v?'aria-current="page"':''}>${ic(VIEWS[v].i)}<span>${VIEWS[v][S.lang]}</span>${v==='approvals'&&pc?`<i class="badge">${pc}</i>`:''}${v==='messages'&&!locked&&unreadN()?`<i class="badge">${unreadN()}</i>`:''}${v==='dashboard'&&!locked&&P().daily&&unreadSums().length?`<i class="badge">${unreadSums().length}</i>`:''}</button>`).join('');
+ const nav=locked?'':P().views.map(v=>`<button class="nav-i ${S.view===v?'on':''}" data-a="nav" data-v="${v}" ${S.view===v?'aria-current="page"':''}>${ic(VIEWS[v].i)}<span>${VIEWS[v][S.lang]}</span>${v==='approvals'&&pc?`<i class="badge">${pc}</i>`:''}${v==='messages'&&!locked&&unreadN()?`<i class="badge">${unreadN()}</i>`:''}${v==='dashboard'&&!locked&&P().daily&&unreadSums().length?`<i class="badge">${unreadSums().length}</i>`:''}${v==='leads'&&!locked&&canLeads()&&lmNew()?`<i class="badge">${lmNew()}</i>`:''}</button>`).join('');
  const body=locked?vLogin():{dashboard:vDash,messages:vMessages,approvals:vApprovals,tasks:vTasks,roster:vRoster,schedule:vSched,patients:vPatients,summary:vSummary,finance:vFin,staff:vStaff,leads:vLeads,reports:vReports}[S.view]();
  const role=SH.on?(sharedRole()==='manager'&&adminIn()?`<label class="role"><span class="sr">${_('תצוגה בתור','Preview as')}</span><select id="roleSel" data-c="role">${['manager','counselor','therapist','admissions'].map(r=>`<option value="${r}" ${S.role===r?'selected':''}>${r==='manager'?staffName(myStaffId()):_('תצוגה כ','Preview as ')+ROLES[r][S.lang]} · ${ROLES[r][S.lang]}</option>`).join('')}</select></label>`:`<span class="chip whoami">${esc(staffName(myStaffId()))} · ${ROLES[sharedRole()][S.lang]}</span>`)
   :`<label class="role"><span class="sr">${_('צפייה בתור','View as')}</span><select id="roleSel" data-c="role">${Object.keys(AS).map(r=>`<option value="${r}" ${S.role===r?'selected':''}>${staffName(AS[r])} · ${ROLES[r][S.lang]}</option>`).join('')}</select></label>`;
@@ -2148,6 +2202,22 @@ const A={
   modal(`${_('קליטה','Admit')} · ${l.name}`,`<div class="form"><p class="hint">${_('הפרטים מהפנייה עוברים לפרופיל החדש.','Details from the lead carry over to the new profile.')}</p><div class="fr">${fld('ad',_('תאריך הגעה','Arrival date'),`<input id="ad" type="date" value="${l.arrival||TD}">`)}${sel('ac',_('מדריך','Counselor'),D.staff.filter(s=>s.role==='counselor').map(s=>[s.id,nm(s.name)]),'omer')}</div>${sel('at2',_('מטפל/ת','Therapist'),D.staff.filter(s=>s.role==='therapist').map(s=>[s.id,nm(s.name)]),'orit')}</div>`,
    ()=>{const d=val('ad');const id='p'+uid();D.patients.push({id,name:l.name,country:l.country,arrival:d,stage:'gozal',history:[{stage:'gozal',date:d,by:me(),note:_('נקלט מפנייה','Admitted from lead')}],counselor:val('ac'),therapist:val('at2'),archived:false,fees:[],fromLead:l.id});
     l.status='admitted';l.next='';return _('נוצר פרופיל מטופל','Patient profile created')},_('יצירת פרופיל','Create profile'));return'keep'},
+ ltab:v=>{S.ltab=v},
+ lmf:v=>{S.lmf=v},
+ lmTake:v=>{const l=(D.lm||[]).find(x=>x.id===v);if(!l)return;l.owner=me();if(l.st==='new')l.st='progress';(l.log||(l.log=[])).push({at:new Date().toISOString(),by:me(),text:_('לקח/ה את הליד','took the lead')});save();toast(_('הליד אצלך','The lead is yours'))},
+ lmCall:v=>{const l=(D.lm||[]).find(x=>x.id===v);if(!l)return'keep';if(!l.owner)l.owner=me();if(l.st==='new')l.st='progress';(l.log||(l.log=[])).push({at:new Date().toISOString(),by:me(),text:_('התקשר/ה','called')});save();return'keep'},
+ lmNote:v=>{const l=(D.lm||[]).find(x=>x.id===v);if(!l)return'keep';
+  modal(`${_('תיעוד שיחה','Log a call')} · ${l.name||''}`,`<div class="form">${area('lmt',_('מה היה בשיחה','What happened'))}<div class="fr">${sel('lms',_('סטטוס','Status'),LMST.map(x=>[x.id,x[S.lang]]),l.st==='new'?'progress':l.st)}${fld('lmx',_('לחזור בתאריך (לא חובה)','Call back on (optional)'),`<input id="lmx" type="date" value="${l.next||''}">`)}</div></div>`,
+   ()=>{const t=val('lmt');if(!need(t,_('כתבו מה היה','Write what happened')))return'stay';(l.log||(l.log=[])).push({at:new Date().toISOString(),by:me(),text:t});l.st=val('lms');l.next=val('lmx')||'';if(!l.owner)l.owner=me();
+    if(l.next){D.tasks.push({id:uid(),text:`${_('לחזור לליד','Call back lead')}: ${l.name||l.phone}`,by:me(),to:'me',shift:'',created:TD+'T'+NOWT,urgent:false,pid:'',due:l.next,done:false,src:''})}
+    return _('נשמר','Saved')});return'keep'},
+ lmPipe:v=>{const l=(D.lm||[]).find(x=>x.id===v);if(!l)return;D.leads.push({id:uid(),name:l.name||l.phone,country:l.country||'',source:`LeadManager${l.channel?' · '+l.channel:''}`,status:'new',next:add(TD,1),todo:{he:'שיחת היכרות',en:'Intro call'},created:TD,phone:l.phone,email:l.email});l.pipe=true;save();toast(_('נוסף לתהליך הקליטה','Added to the admissions pipeline'))},
+ lmUrl:async()=>{const el=$('#lmurl');if(!window.RETORNO_SUPA||!window.RETORNO_SUPA.leadUrl){if(el)el.innerHTML=`<p class="hint">${_('זמין באפליקציה עצמה (לא בגרסה שבתוך Claude).','Available in the app itself (not inside Claude).')}</p>`;return'keep'}
+  try{const u=await window.RETORNO_SUPA.leadUrl();if(el)el.innerHTML=`<div class="copyrow"><input readonly dir="ltr" value="${esc(u)}" onclick="this.select()"><button class="btn sm" data-a="lmCopy">${_('העתקה','Copy')}</button></div>`;S.lmUrl=u}catch(e){toast(String(e.message||e))}return'keep'},
+ lmCopy:()=>{try{navigator.clipboard.writeText(S.lmUrl||'');toast(_('הועתק','Copied'))}catch(e){}return'keep'},
+ lmTest:async()=>{try{const u=S.lmUrl||(window.RETORNO_SUPA&&window.RETORNO_SUPA.leadUrl&&await window.RETORNO_SUPA.leadUrl());if(!u)return'keep';S.lmUrl=u;
+  const r=await fetch(u+'&test=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({LeadId:'test-'+Date.now(),FullName:_('ליד בדיקה','Test lead'),Phone:'050-0000000',Email:'test@example.com',Campaign:'רטורנו חו"ל',Channel:_('בדיקה מהאפליקציה','Test from the app'),Notes:_('זה ליד בדיקה – אפשר לסמן “לא רלוונטי”.','This is a test lead – mark it “Not relevant”.')})});
+  toast(r.ok?_('נשלח ליד בדיקה – הוא יופיע תוך כמה שניות, עם התראה','Test lead sent – it shows within seconds, with an alert'):`${_('שגיאה','Error')} ${r.status}`)}catch(e){toast(String(e.message||e))}return'keep'},
  addLead:()=>{modal(_('פנייה חדשה','New lead'),`<div class="form">${txt('ln',_('שם','Name'))}<div class="fr">${txt('lc',_('מדינה','Country'))}${txt('ls',_('מקור הפנייה','Source'))}</div><div class="fr">${fld('lx',_('מעקב הבא','Next follow-up'),`<input id="lx" type="date" value="${add(TD,1)}">`)}${txt('lt',_('מה צריך לעשות','What needs doing'))}</div></div>`,
   ()=>{if(!need(val('ln'),_('כתבו שם','Enter a name')))return'stay';D.leads.push({id:uid(),name:val('ln'),country:val('lc'),source:val('ls'),status:'new',next:val('lx'),todo:val('lt')});return _('הפנייה נוספה','Lead added')});return'keep'},
  csv:()=>{const t=S._csv;const fb=()=>{modal(_('העתקה ידנית','Copy manually'),`<div class="f"><label for="csvt">${_('סמנו והעתיקו','Select and copy')}</label><textarea id="csvt" style="min-height:220px;direction:ltr" readonly>${esc(t)}</textarea></div>`);setTimeout(()=>$('#csvt')?.select(),50)};
@@ -2401,6 +2471,9 @@ function readReview(s){
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b||!b.isConnected)return;const f=A[b.dataset.a];if(!f)return;e.preventDefault();const r=f(b.dataset.v,b);if(r!=='keep')render()});
 document.addEventListener('change',e=>{const t=e.target;const c=t.dataset&&t.dataset.c;
  if(c==='role'){if(SH.on)S.viewAs=t.value==='manager'?null:t.value;else S.role=t.value;S.mine=null;S.pid=null;S.sumId=null;render()}else if(c==='mine'){S.mine=t.checked;render()}else if(c==='boxMonth'){S.boxMonth=t.value;render()}
+  else if(c==='lmst'){const l=(D.lm||[]).find(x=>x.id===t.dataset.v);if(l){l.st=t.value;if(!l.owner)l.owner=me();(l.log||(l.log=[])).push({at:new Date().toISOString(),by:me(),text:`${_('סטטוס','status')}: ${lmSt(t.value)[S.lang]}`});save();render()}}
+  else if(c==='lmq'){S.lmq=t.value;render()}
+  else if(c==='lmacc'){const a=new Set(D.leadAccess||[]);if(t.checked)a.add(t.value);else a.delete(t.value);D.leadAccess=[...a];save();toast(_('ההרשאה עודכנה','Access updated'))}
  else if(t.dataset&&t.dataset.calc){S.calc[t.dataset.calc]=+t.value;const id=t.id;render();const el=document.getElementById(id);if(el)el.focus()}
  else if(t.dataset&&t.dataset.roster&&S.role==='manager'){const[d,k]=t.dataset.roster.split('|');D.roster[d]=D.roster[d]||{};delete D.roster[d].demo;D.roster[d][k]=t.value;save();render();toast(_('השיבוץ נשמר','Roster saved'))}
  else if(t.id==='addPid'&&t.value){const s=D.summaries.find(x=>x.id===S.sumId);readReview(s);save();render()}});
