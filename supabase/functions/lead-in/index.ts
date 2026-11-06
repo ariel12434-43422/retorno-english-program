@@ -69,6 +69,8 @@ Deno.serve(async (req) => {
       when: pick(f, "מתי נוח", "besttime", "preferredtime"),
       lmDate: pick(f, "createdate", "date", "תאריך", "createdon"),
     };
+    // an empty call (LeadManager checks the address when the rule is saved): answer OK, save nothing
+    if (!lead.name && !lead.phone && !lead.email && !lead.lmId && !lead.message) return out(200, "OK");
     const id = (lead.lmId || crypto.randomUUID()).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) || crypto.randomUUID();
     const path = "lm/" + id;
     const { data: old } = await db.from("docs").select("body").eq("path", path).maybeSingle();
