@@ -2069,20 +2069,23 @@ document.addEventListener('input',e=>{const t=e.target;if(t.type==='range'&&t.da
 /* ---------- speaking instead of typing: a microphone button on every text box ---------- */
 (function(){
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
- const st=document.createElement('style');st.textContent=`.micbar{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}.micbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card,#fff);color:var(--ink);border-radius:999px;padding:5px 12px;font:inherit;font-size:.85rem;cursor:pointer}.micbtn.on{background:#c92a2a;border-color:#c92a2a;color:#fff;animation:micp 1.2s infinite}.miclang{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:4px 9px;font:inherit;font-size:.8rem;cursor:pointer}.micint{font-size:.8rem;color:var(--muted,#777);flex-basis:100%}@keyframes micp{50%{opacity:.75}}`;document.head.appendChild(st);
+ const st=document.createElement('style');st.textContent=`.micbar{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}.micbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card,#fff);color:var(--ink);border-radius:999px;padding:5px 12px;font:inherit;font-size:.85rem;cursor:pointer}.micbtn.on{background:#c92a2a;border-color:#c92a2a;color:#fff;animation:micp 1.2s infinite}.miclang{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:4px 9px;font:inherit;font-size:.8rem;cursor:pointer}.micint{font-size:.8rem;color:var(--muted,#777);flex-basis:100%}.micsend{border:0;background:var(--accent,#2b6cb0);color:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-size:.88rem;font-weight:600;cursor:pointer}.micsend[hidden]{display:none}@keyframes micp{50%{opacity:.75}}`;document.head.appendChild(st);
  let rec=null,cur=null,want=false;
  const getLang=()=>{try{return localStorage.getItem('retorno_mic_lang')||(S.lang==='he'?'he-IL':'en-US')}catch(e){return S.lang==='he'?'he-IL':'en-US'}};
  const setLang=l=>{try{localStorage.setItem('retorno_mic_lang',l)}catch(e){}};
  const langLbl=l=>l==='he-IL'?'עברית':'English';
- function stop(){want=false;if(rec)try{rec.stop()}catch(e){}if(cur){const b=cur.bar.querySelector('.micbtn');if(b){b.classList.remove('on');b.innerHTML='🎤 '+_('הקלטה','Dictate')}const i=cur.bar.querySelector('.micint');if(i)i.textContent=''}cur=null}
+ const sendTarget=ta=>{const m=ta.closest('#modal');if(m)return m.querySelector('#msave');const c=ta.closest('section.card,.card');return c?[...c.querySelectorAll('.btn.primary')].find(b=>b.offsetParent!==null||true):null};
+ const join=(a,b)=>!b?a:!a?b:a+(/\s$/.test(a)?'':' ')+b;
+ function syncSend(ta,bar){const sb=bar.querySelector('.micsend');if(!sb)return;const t=sendTarget(ta);sb.hidden=!t||!ta.value.trim();if(t)sb.textContent='✓ '+(t.id==='msave'?_('שליחה','Send'):t.textContent.trim())}
+ function stop(){want=false;if(rec)try{rec.stop()}catch(e){}if(cur){const b=cur.bar.querySelector('.micbtn');if(b){b.classList.remove('on');b.innerHTML='🎤 '+_('הקלטה','Dictate')}const i=cur.bar.querySelector('.micint');if(i)i.textContent='';syncSend(cur.ta,cur.bar)}cur=null}
  function startOn(ta,bar){
   if(!SR){toast(_('בטלפון הזה אין הקלטה מתוך האפליקציה. אפשר ללחוץ על המיקרופון במקלדת ולדבר – הטקסט ייכתב לבד.','This phone can\'t dictate inside the app. Tap the microphone on your keyboard and speak – the text is typed for you.'));return}
   if(cur)stop();want=true;cur={ta,bar};
   const b=bar.querySelector('.micbtn');b.classList.add('on');b.innerHTML='⏹ '+_('עצירה','Stop');
-  const go=()=>{rec=new SR();rec.lang=getLang();rec.continuous=false;rec.interimResults=true;
-   rec.onresult=e=>{if(!cur)return;let fin='',mid='';for(let k=e.resultIndex;k<e.results.length;k++){const r=e.results[k];if(r.isFinal)fin+=r[0].transcript;else mid+=r[0].transcript}
-    if(fin){const t=cur.ta;const v=t.value;t.value=v+(v&&!/\s$/.test(v)?' ':'')+fin.trim();t.dispatchEvent(new Event('input',{bubbles:true}));t.scrollTop=t.scrollHeight}
-    const i=cur.bar.querySelector('.micint');if(i)i.textContent=mid?'… '+mid:''};
+  const go=()=>{rec=new SR();rec.lang=getLang();rec.continuous=false;rec.interimResults=true;const base=ta.value;
+   rec.onresult=e=>{if(!cur)return;let said='',done=true;for(let k=0;k<e.results.length;k++){said+=e.results[k][0].transcript;if(!e.results[k].isFinal)done=false}
+    const t=cur.ta;t.value=join(base,said.trim());t.dispatchEvent(new Event('input',{bubbles:true}));t.scrollTop=t.scrollHeight;
+    const i=cur.bar.querySelector('.micint');if(i)i.textContent=done?'':_('… ממשיך לשמוע','… listening')};
    rec.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){toast(_('צריך לאשר לאפליקציה גישה למיקרופון (בהגדרות הדפדפן).','Allow the app to use the microphone (in the browser settings).'));stop()}else if(e.error==='network'){toast(_('אין חיבור לאינטרנט – התמלול לא זמין כרגע.','No internet – dictation is not available right now.'));stop()}};
    rec.onend=()=>{if(want&&cur&&cur.ta.isConnected)setTimeout(()=>{if(want)try{go()}catch(e){stop()}},150);else if(cur)stop()};
    try{rec.start()}catch(e){stop()}};
@@ -2091,9 +2094,11 @@ document.addEventListener('input',e=>{const t=e.target;if(t.type==='range'&&t.da
  function deco(root){(root.querySelectorAll?root.querySelectorAll('textarea'):[]).forEach(ta=>{
   if(ta.dataset.mic||ta.readOnly||ta.disabled||ta.closest('.nomic'))return;ta.dataset.mic='1';
   const bar=document.createElement('div');bar.className='micbar';
-  bar.innerHTML=`<button type="button" class="micbtn">🎤 ${_('הקלטה','Dictate')}</button><button type="button" class="miclang" title="${_('שפת הדיבור','Speaking language')}">${langLbl(getLang())}</button><span class="micint" dir="auto"></span>`;
+  bar.innerHTML=`<button type="button" class="micbtn">🎤 ${_('הקלטה','Dictate')}</button><button type="button" class="miclang" title="${_('שפת הדיבור','Speaking language')}">${langLbl(getLang())}</button><button type="button" class="micsend" hidden></button><span class="micint" dir="auto"></span>`;
   ta.insertAdjacentElement('afterend',bar);
   bar.querySelector('.micbtn').onclick=ev=>{ev.preventDefault();ev.stopPropagation();if(cur&&cur.ta===ta)stop();else startOn(ta,bar)};
+  bar.querySelector('.micsend').onclick=ev=>{ev.preventDefault();ev.stopPropagation();if(cur)stop();const t=sendTarget(ta);if(t)t.click()};
+  ta.addEventListener('input',()=>syncSend(ta,bar));setTimeout(()=>syncSend(ta,bar),0);
   bar.querySelector('.miclang').onclick=ev=>{ev.preventDefault();ev.stopPropagation();const n=getLang()==='he-IL'?'en-US':'he-IL';setLang(n);document.querySelectorAll('.miclang').forEach(x=>x.textContent=langLbl(n));if(cur&&cur.ta===ta){const t=ta,b=bar;stop();startOn(t,b)}};
  })}
  deco(document);
