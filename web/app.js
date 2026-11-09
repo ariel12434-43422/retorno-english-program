@@ -519,15 +519,21 @@ function timeline(p){
  for(let i=14;i>=0;i--){const d=add(TD,-i);instances(d).forEach(x=>{const v=x.log.att&&x.log.att[p.id];if(v==='l'||v==='a')ev.push({t:'att',date:d,time:x.time,html:`<span class="pill ${v==='l'?'warn':'bad'}">${v==='l'?_('איחר','Late'):_('נעדר','Absent')}</span> ${esc(nm(x.title))} <span class="muted">· ${staffName(x.log.by||x.staff)}</span>`})})}
  if(pr.incidents)D.incidents.filter(i=>i.pid===p.id).forEach(i=>ev.push({t:'inc',date:i.date,time:i.time,html:incidentBlock(i,false),raw:true}));
  D.notes.filter(n=>n.pid===p.id&&canSeeNote(n)).forEach(n=>ev.push({t:'sum',date:n.date,time:n.time||'',raw:true,html:noteBlock(n)}));
- if(pr.daily)D.summaries.filter(s=>s.status==='published').forEach(s=>s.parts.filter(x=>x.pid===p.id).forEach(x=>ev.push({t:'sum',date:s.date,time:'23:59',raw:true,html:`<div class="note"><div class="note-h"><span class="typ">${_('סיכום יום','Daily summary')}</span><b style="color:var(--ink)">${staffName(s.author)}</b><span>${fmtDate(s.date)}</span></div>${topicChips(x.topics)}<div class="note-b" dir="auto">${esc(x.text)}</div>${readBar(itemOf('sum:'+s.id))}</div>`})));
+ if(pr.daily)D.summaries.filter(s=>s.status==='published').forEach(s=>s.parts.filter(x=>x.pid===p.id).forEach(x=>ev.push({t:'sum',date:s.date,time:'23:59',raw:true,html:`<div class="note"><div class="note-h"><span class="typ">${_('סיכום יום','Daily summary')}</span><b style="color:var(--ink)">${staffName(s.author)}</b><span>${fmtDate(s.date)}</span>${editedChip(s)}</div>${topicChips(x.topics)}<div class="note-b" dir="auto">${esc(x.text)}</div>${readBar(itemOf('sum:'+s.id))}</div>`})));
  p.history.forEach(h=>ev.push({t:'stage',date:h.date,time:'00:00',html:`${_('מעבר ל','Moved to ')}${stagePill(h.stage)} <span class="muted">· ${staffName(h.by)}</span>${h.note?` <span class="muted" dir="auto">· ${esc(h.note)}</span>`:''}`}));
  const hidden=D.notes.filter(n=>n.pid===p.id&&!canSeeNote(n)).length;
  return{ev:ev.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)),hidden};
 }
+const editedChip=o=>o&&o.editedAt?`<span class="chip" title="${esc(new Date(o.editedAt).toLocaleString(S.lang==='he'?'he-IL':'en-GB'))}">✎ ${_('נערך','Edited')} ${fmtDate(o.editedAt.slice(0,10))}</span>`:'';
+const canEditOwn=o=>!!o&&o.author===me()&&o.source!=='whatsapp';
+const prevVers=(o,show)=>{const h=(o&&o.history)||[];if(!h.length||!(S.role==='manager'||o.author===me()))return'';
+ return`<details class="orig"><summary>${_('גרסאות קודמות','Earlier versions')} (${h.length})</summary>${h.slice().reverse().map(v=>`<div class="s">${_('עד','Until')} ${esc(new Date(v.until).toLocaleString(S.lang==='he'?'he-IL':'en-GB'))}</div><div class="note-b" dir="auto">${esc(show(v))}</div>`).join('')}</details>`};
+const noteVer=v=>[v.text,v.task?(_('משימה למטופל','Task for the patient')+': '+v.task):''].filter(Boolean).join('\n');
+const sumVer=v=>[v.general,...(v.parts||[]).map(x=>(pat(x.pid)?.name||'')+': '+x.text)].filter(Boolean).join('\n\n');
 function noteBlock(n){
  const t=trShown('note',n.id)&&n.tr;
- return`<div class="note"><div class="note-h">${n.kind==='therapy'?`<span class="typ individual">${_('סיכום טיפולי','Therapy summary')}</span>`:`<span class="typ">${_('תיעוד','Note')}</span>`}<b style="color:var(--ink)">${staffName(n.author)}</b><span>${when(n.date,n.time)}</span>${n.followup?`<span class="pill ${n.resolved?'ok':'warn'}">${n.resolved?_('טופל','Handled'):_('למעקב','Follow-up')}</span>`:''}${n.session?`<span class="chip">${_('מקושר למפגש','Linked to session')}</span>`:''}${n.source==='whatsapp'?`<span class="chip">${_('מקבוצת הוואטסאפ','From the WhatsApp group')}</span>`:''}</div>
- ${topicChips(n.topics)}<div class="note-b" dir="auto">${esc(t?n.tr:n.text)}</div>${n.task?`<div class="taskln ${n.taskDone?'done':''}">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(n.task)}</span> ${n.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:''}</div>`:''}${trControl('note',n.id,n)}${readBar(itemOf('note:'+n.id))}</div>`;
+ return`<div class="note"><div class="note-h">${n.kind==='therapy'?`<span class="typ individual">${_('סיכום טיפולי','Therapy summary')}</span>`:`<span class="typ">${_('תיעוד','Note')}</span>`}<b style="color:var(--ink)">${staffName(n.author)}</b><span>${when(n.date,n.time)}</span>${n.followup?`<span class="pill ${n.resolved?'ok':'warn'}">${n.resolved?_('טופל','Handled'):_('למעקב','Follow-up')}</span>`:''}${n.session?`<span class="chip">${_('מקושר למפגש','Linked to session')}</span>`:''}${n.source==='whatsapp'?`<span class="chip">${_('מקבוצת הוואטסאפ','From the WhatsApp group')}</span>`:''}${editedChip(n)}</div>
+ ${topicChips(n.topics)}<div class="note-b" dir="auto">${esc(t?n.tr:n.text)}</div>${n.task?`<div class="taskln ${n.taskDone?'done':''}">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(n.task)}</span> ${n.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:''}</div>`:''}${trControl('note',n.id,n)}${canEditOwn(n)?`<div class="toolbar"><button class="btn sm ghost" data-a="noteEdit" data-v="${n.id}">✎ ${_('עריכה','Edit')}</button></div>`:''}${prevVers(n,noteVer)}${readBar(itemOf('note:'+n.id))}</div>`;
 }
 /* ---------- summaries: who should read them, topics, tasks, one connected thread per patient ---------- */
 const READ_FROM='2026-11-02';
@@ -570,12 +576,12 @@ function careThread(p){
  const byKey={};its.forEach(i=>byKey[i.key]=i);
  const weeks={};shown.forEach(i=>{const w=add(i.date,-dowOf(i.date));(weeks[w]||(weeks[w]=[])).push(i)});
  const entry=i=>{const rp=i.reply&&byKey[i.reply];const kids=its.filter(x=>x.reply===i.key);
-  return`<div class="note care ${i.kind}" id="c_${i.key.replace(':','_')}"><div class="note-h"><span class="typ ${i.kind==='therapy'?'individual':''}">${i.type}</span><b style="color:var(--ink)">${esc(staffName(i.author))}</b><span>${when(i.date,i.time)}</span></div>
+  return`<div class="note care ${i.kind}" id="c_${i.key.replace(':','_')}"><div class="note-h"><span class="typ ${i.kind==='therapy'?'individual':''}">${i.type}</span><b style="color:var(--ink)">${esc(staffName(i.author))}</b><span>${when(i.date,i.time)}</span>${editedChip(i.obj)}</div>
   ${rp?`<div class="s">↩ ${_('בהמשך ל','Follows')}: ${rp.type} · ${esc(staffName(rp.author))} · ${fmtDate(rp.date)}</div>`:''}${topicChips(i.topics)}
   <div class="note-b" dir="auto">${esc(i.text&&i.text.length>600?trim(i.text,600):i.text||'')}</div>${i.text&&i.text.length>600?`<details><summary>${_('להמשך','More')}</summary><div class="note-b" dir="auto">${esc(i.text)}</div></details>`:''}
   ${i.task?`<div class="taskln ${i.taskDone?'done':''}">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(i.task)}</span> ${i.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:`<span class="pill warn">${_('פתוחה','Open')}</span>`}</div>`:''}
   ${kids.length?`<div class="s">${kids.length} ${_('תגובות המשך','follow-ups')}: ${kids.map(k=>`${esc(staffName(k.author))} (${fmtDate(k.date)})`).join(', ')}</div>`:''}
-  <div class="toolbar">${!p.archived&&P().daily?`<button class="btn sm ghost" data-a="note" data-v="${p.id}|${i.key}">${_('המשך מכאן','Continue from here')}</button><button class="btn sm ghost" data-a="tAdd" data-v="${p.id}|${i.key}">+ ${_('משימת מעקב','Follow-up task')}</button>`:''}</div>${(()=>{const ts=D.tasks.filter(t=>t.src===i.key);return ts.length?`<div class="s">${ts.map(t=>`${t.done?'✓':'○'} ${esc(trim(t.text,60))} (${esc(taskToLbl(t)||_('לוח המשמרת','shift board'))})`).join(' · ')}</div>`:''})()}${readBar(i)}</div>`};
+  <div class="toolbar">${canEditOwn(i.obj)?(i.key.startsWith('sum:')?`<button class="btn sm ghost" data-a="sumEdit" data-v="${i.obj.id}">✎ ${_('עריכה','Edit')}</button>`:`<button class="btn sm ghost" data-a="noteEdit" data-v="${i.obj.id}">✎ ${_('עריכה','Edit')}</button>`):''}${!p.archived&&P().daily?`<button class="btn sm ghost" data-a="note" data-v="${p.id}|${i.key}">${_('המשך מכאן','Continue from here')}</button><button class="btn sm ghost" data-a="tAdd" data-v="${p.id}|${i.key}">+ ${_('משימת מעקב','Follow-up task')}</button>`:''}</div>${(()=>{const ts=D.tasks.filter(t=>t.src===i.key);return ts.length?`<div class="s">${ts.map(t=>`${t.done?'✓':'○'} ${esc(trim(t.text,60))} (${esc(taskToLbl(t)||_('לוח המשמרת','shift board'))})`).join(' · ')}</div>`:''})()}${readBar(i)}</div>`};
  const col=(list,kind)=>list.filter(i=>i.kind===kind).map(entry).join('');
  return`<div class="toolbar">${!p.archived&&P().daily?`<button class="btn sm primary" data-a="note" data-v="${p.id}">+ ${_('תיעוד / סיכום','Note / summary')}</button>`:''}${S.role==='manager'?`<button class="btn sm" data-a="exportSums" data-v="${p.id}">${_('ייצוא כל הסיכומים לקובץ','Export all summaries to a file')}</button>`:''}</div>
  <div class="grid2 even"><section class="card"><div class="card-h"><h2>${_('משימות שניתנו למטופל','Tasks given to the patient')}</h2><span class="chip ${open.length?'warn':''}">${open.length} ${_('פתוחות','open')}</span></div>
@@ -790,6 +796,7 @@ function vSummary(){
   ${mineList.map(s=>`<button class="prow ${cur&&cur.id===s.id?'on':''}" data-a="openSum" data-v="${s.id}"><div class="grow"><div class="t">${fmtDate(s.date,{weekday:'short',day:'numeric',month:'short'})} · ${staffName(s.author)}</div><div class="s" dir="auto">${esc(trim(s.general||s.original,80))}</div></div>${s.status==='published'?`<span class="pill ok">${_('פורסם','Published')}</span>`:`<span class="pill warn">${_('טיוטה','Draft')}</span>`}</button>`).join('')||empty(_('אין סיכומים עדיין.','No summaries yet.'))}</div></section>`;
  let main;
  if(!cur){main=composeCard(null)}
+ else if(cur.status==='published'&&S.sumEdit===cur.id&&canEditOwn(cur)){main=reviewCard(cur,true)}
  else if(cur.status==='published'||cur.author!==me()&&S.role!=='manager'){main=publishedCard(cur)}
  else if(cur.stage==='review'){main=reviewCard(cur)}
  else main=composeCard(cur);
@@ -807,22 +814,22 @@ function composeCard(s){
  <div class="toolbar">${SAMPLE?`<button class="btn primary" data-a="aiSum" data-v="${s?.id||''}">${_('ארגון הסיכום עם AI','Organize with AI')}</button>`:''}<button class="btn ${SAMPLE?'':'primary'}" data-a="manualSum" data-v="${s?.id||''}">${_('המשך בלי AI','Continue without AI')}</button></div>
  <p class="hint" id="aiStat">${SAMPLE?_('ה־AI מסדר וממשפר ניסוח בלבד: לא מוסיף, לא משמיט ולא משנה חומרה. דברים לא ברורים מסומנים לבדיקה. המקור נשמר.','The AI only organizes and polishes wording: it adds nothing, drops nothing and keeps severity as is. Unclear points are flagged for you to check. The original is kept.'):_('ארגון עם AI זמין כשהעמוד פתוח בתוך Claude.','AI organizing is available when the page is opened inside Claude.')}</p></div></section>`;
 }
-function reviewCard(s){
+function reviewCard(s,editing){
  const act=activeP();
- return`<section class="card"><div class="card-h"><h2>${_('בדיקה ואישור לפני פרסום','Review and approve before publishing')}</h2>${s.aiUsed?`<span class="chip">${_('נוסח ע״י AI – לבדיקה','AI draft – needs review')}</span>`:''}</div><div class="form">
+ return`<section class="card"><div class="card-h"><h2>${editing?_('עריכת סיכום שפורסם','Editing a published summary'):_('בדיקה ואישור לפני פרסום','Review and approve before publishing')}</h2>${!editing&&s.aiUsed?`<span class="chip">${_('נוסח ע״י AI – לבדיקה','AI draft – needs review')}</span>`:''}</div><div class="form">
  <details class="orig"><summary>${_('הנוסח המקורי (נשמר)','Original text (kept)')}</summary><div class="note-b" dir="auto">${esc(s.original)}</div></details>
- ${s.unclear&&s.unclear.length?`<div class="banner warnb"><div><b>${_('לבדיקה – לא ברור מהמקור','To check – unclear in the original')}:</b><ul>${s.unclear.map(u=>`<li dir="auto">${esc(u)}</li>`).join('')}</ul></div></div>`:''}
+ ${editing?`<p class="hint">${_('השינויים יופיעו לכל הצוות ובתיקי המטופלים, עם סימון "נערך". הנוסח הקודם נשמר.','Your changes will show for the whole team and in the patient files, marked "Edited". The earlier version is kept.')}</p>`:''}${!editing&&s.unclear&&s.unclear.length?`<div class="banner warnb"><div><b>${_('לבדיקה – לא ברור מהמקור','To check – unclear in the original')}:</b><ul>${s.unclear.map(u=>`<li dir="auto">${esc(u)}</li>`).join('')}</ul></div></div>`:''}
  <div class="f"><label for="sg">${_('כללי – על היום','General – about the day')}</label><textarea id="sg" dir="auto">${esc(s.general)}</textarea></div>
  ${s.parts.map((x,i)=>`<div class="f ppart"><label for="sp_${i}">${esc(pat(x.pid)?.name||'')}</label><textarea id="sp_${i}" data-pid="${x.pid}" dir="auto">${esc(x.text)}</textarea><div class="checks sm" aria-label="${_('נושאים','Topics')}">${TOPICS.map(t=>`<label><input type="checkbox" class="ptop" data-i="${i}" value="${t.id}" ${(x.topics||[]).includes(t.id)?'checked':''}>${t[S.lang]}</label>`).join('')}</div><input class="ptask" data-i="${i}" dir="auto" placeholder="${_('משימה למטופל (לא חובה)','Task for the patient (optional)')}" value="${esc(x.task||'')}"><button class="btn sm ghost danger" data-a="rmPart" data-v="${i}">${_('הסרה','Remove')}</button></div>`).join('')}
  <div class="toolbar"><select id="addPid" aria-label="${_('הוספת מטופל','Add patient')}"><option value="">${_('+ הוספת חלק למטופל','+ Add a patient section')}</option>${act.filter(p=>!s.parts.some(x=>x.pid===p.id)).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
- ${s.unclear&&s.unclear.length?`<label class="toggle"><input type="checkbox" id="chk">${_('בדקתי את הנקודות שסומנו','I checked the flagged points')}</label>`:''}
- <div class="toolbar"><button class="btn primary" data-a="pubSum" data-v="${s.id}">${_('אישור ופרסום לצוות','Approve and publish')}</button><button class="btn" data-a="draftSum" data-v="${s.id}">${_('שמירת טיוטה','Save draft')}</button><button class="btn ghost" data-a="backSum" data-v="${s.id}">${_('חזרה לעריכת המקור','Back to the original')}</button></div></div></section>`;
+ ${!editing&&s.unclear&&s.unclear.length?`<label class="toggle"><input type="checkbox" id="chk">${_('בדקתי את הנקודות שסומנו','I checked the flagged points')}</label>`:''}
+ ${editing?`<div class="toolbar"><button class="btn primary" data-a="sumEditSave" data-v="${s.id}">${_('שמירת השינויים','Save changes')}</button><button class="btn ghost" data-a="sumEditCancel" data-v="${s.id}">${_('ביטול','Cancel')}</button></div></div></section>`:`<div class="toolbar"><button class="btn primary" data-a="pubSum" data-v="${s.id}">${_('אישור ופרסום לצוות','Approve and publish')}</button><button class="btn" data-a="draftSum" data-v="${s.id}">${_('שמירת טיוטה','Save draft')}</button><button class="btn ghost" data-a="backSum" data-v="${s.id}">${_('חזרה לעריכת המקור','Back to the original')}</button></div></div></section>`}`;
 }
 function publishedCard(s){
- return`<section class="card"><div class="card-h"><h2>${fmtDate(s.date,{weekday:'long',day:'numeric',month:'long'})} · ${staffName(s.author)}</h2>${s.status==='published'?`<span class="pill ok">${_('פורסם','Published')}</span>`:`<span class="pill warn">${_('טיוטה','Draft')}</span>`}</div>
- <div class="form"><div class="note-b" dir="auto">${esc(s.general)}</div>
+ return`<section class="card"><div class="card-h"><h2>${fmtDate(s.date,{weekday:'long',day:'numeric',month:'long'})} · ${staffName(s.author)}</h2>${s.status==='published'?`<span class="pill ok">${_('פורסם','Published')}</span>`:`<span class="pill warn">${_('טיוטה','Draft')}</span>`}${editedChip(s)}</div>
+ <div class="form">${s.status==='published'&&canEditOwn(s)?`<div class="toolbar"><button class="btn sm" data-a="sumEdit" data-v="${s.id}">✎ ${_('עריכת הסיכום','Edit this summary')}</button></div>`:''}<div class="note-b" dir="auto">${esc(s.general)}</div>
  ${s.parts.map(x=>`<div class="ppub"><button class="link" data-a="openP" data-v="${x.pid}">${esc(pat(x.pid)?.name||'')}</button>${topicChips(x.topics)}<div class="note-b" dir="auto">${esc(x.text)}</div>${x.task?`<div class="taskln">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(x.task)}</span></div>`:''}${s.status==='published'&&!pat(x.pid)?.archived?`<div class="toolbar"><button class="btn sm ghost" data-a="tAdd" data-v="${x.pid}|sum:${s.id}">+ ${_('משימת מעקב לצוות','Follow-up task for the team')}</button></div>`:''}</div>`).join('')}
- ${s.status==='published'?readBar(itemOf('sum:'+s.id)):''}<details class="orig"><summary>${_('הנוסח המקורי','Original text')}${s.aiUsed?` · ${_('נוסח ערוך בעזרת AI ואושר ע״י הכותב/ת','edited with AI help, approved by the author')}`:''}</summary><div class="note-b" dir="auto">${esc(s.original)}</div></details></div></section>`;
+ ${prevVers(s,sumVer)}${s.status==='published'?readBar(itemOf('sum:'+s.id)):''}<details class="orig"><summary>${_('הנוסח המקורי','Original text')}${s.aiUsed?` · ${_('נוסח ערוך בעזרת AI ואושר ע״י הכותב/ת','edited with AI help, approved by the author')}`:''}</summary><div class="note-b" dir="auto">${esc(s.original)}</div></details></div></section>`;
 }
 
 function compText(s){const c=s.comp||{};const out=[];
@@ -1970,7 +1977,29 @@ const A={
 
 
  newSum:()=>{S.sumId=null},
- openSum:v=>{S.sumId=v},
+ openSum:v=>{S.sumId=v;if(S.sumEdit&&S.sumEdit!==v){const o=D.summaries.find(x=>x.id===S.sumEdit);if(o&&S.sumSnap)Object.assign(o,JSON.parse(S.sumSnap));S.sumEdit=null;S.sumSnap=null}},
+ sumEdit:v=>{const s=D.summaries.find(x=>x.id===v);if(!canEditOwn(s))return'keep';S.sumId=v;S.sumEdit=v;S.sumSnap=JSON.stringify({general:s.general,parts:s.parts});S.view='summary'},
+ sumEditCancel:v=>{const s=D.summaries.find(x=>x.id===v);if(s&&S.sumSnap)Object.assign(s,JSON.parse(S.sumSnap));S.sumEdit=null;S.sumSnap=null},
+ sumEditSave:v=>{const s=D.summaries.find(x=>x.id===v);if(!canEditOwn(s))return'keep';readReview(s);
+  if(!s.general.trim()&&!s.parts.some(p=>p.text.trim())){toast(_('הסיכום ריק','The summary is empty'));return'keep'}
+  s.parts=s.parts.filter(p=>p.text.trim());const old=S.sumSnap?JSON.parse(S.sumSnap):null;
+  if(old&&JSON.stringify({g:old.general,p:old.parts.map(x=>[x.pid,x.text,x.task||'',(x.topics||[]).join()])})!==JSON.stringify({g:s.general,p:s.parts.map(x=>[x.pid,x.text,x.task||'',(x.topics||[]).join()])})){
+   const now=new Date().toISOString();s.history=[...(s.history||[]),{general:old.general,parts:old.parts.map(x=>({pid:x.pid,text:x.text})),until:now}].slice(-10);s.editedAt=now;s.editedBy=me();save();toast(_('השינויים נשמרו','Changes saved'))}
+  else toast(_('לא היו שינויים','Nothing changed'));
+  S.sumEdit=null;S.sumSnap=null},
+ noteEdit:v=>{const n=D.notes.find(x=>x.id===v);if(!canEditOwn(n))return'keep';
+  modal(`${_('עריכה','Edit')} · ${n.kind==='therapy'?_('סיכום טיפולי','Therapy summary'):_('תיעוד יומי','Daily note')} · ${pat(n.pid)?.name||''}`,`<div class="form"><p class="hint">${fmtDate(n.date)} ${n.time||''} · ${_('השינויים יופיעו לצוות עם סימון "נערך". הנוסח הקודם נשמר.','Changes show for the team marked "Edited". The earlier version is kept.')}</p>
+   ${area('ent',_('תוכן','Text'),n.text)}
+   <div class="f"><span class="lab">${_('נושאים','Topics')}</span><div class="checks sm">${TOPICS.map(t=>`<label><input type="checkbox" class="entp" value="${t.id}" ${(n.topics||[]).includes(t.id)?'checked':''}>${t[S.lang]}</label>`).join('')}</div></div>
+   ${txt('enta',_('משימה שניתנה למטופל (לא חובה)','Task given to the patient (optional)'),n.task||'')}
+   <label class="toggle"><input type="checkbox" id="enf" ${n.followup?'checked':''}>${_('דורש מעקב','Needs follow-up')}</label></div>`,
+   ()=>{const t=val('ent');if(!need(t,_('התוכן לא יכול להיות ריק','The text cannot be empty')))return'stay';
+    const tp=[...document.querySelectorAll('.entp:checked')].map(c=>c.value),tk=val('enta')||'',fu=$('#enf').checked;
+    if(t===n.text&&tk===(n.task||'')&&tp.join()===(n.topics||[]).join()&&fu===!!n.followup)return _('לא היו שינויים','Nothing changed');
+    const now=new Date().toISOString();
+    if(t!==n.text||tk!==(n.task||''))n.history=[...(n.history||[]),{text:n.text,task:n.task||'',until:now}].slice(-10);
+    n.text=t;n.lang=isHe(t)?'he':'en';n.tr=null;n.topics=tp;n.task=tk;if(fu&&!n.followup)n.resolved=false;n.followup=fu;n.editedAt=now;n.editedBy=me();
+    return _('השינויים נשמרו','Changes saved')},_('שמירת השינויים','Save changes'));return'keep'},
  manualSum:v=>{const s=sumFromForm(v);if(!s)return'keep';s.aiUsed=false;s.general=s.general||s.original;s.parts=s.parts&&s.parts.length?s.parts:s.tags.map(pid=>({pid,text:''}));s.unclear=[];s.stage='review';save()},
  aiSum:(v,b)=>{const s=sumFromForm(v);if(!s||!SAMPLE)return'keep';save();
   const act=activeP();b.disabled=true;$('#aiStat').textContent=_('ה־AI מארגן את הסיכום… זה יכול לקחת עד דקה.','The AI is organizing the summary… this can take up to a minute.');
@@ -1992,7 +2021,7 @@ The note:
    s.general=String(r&&r.general||'');s.parts=(Array.isArray(r&&r.patients)?r.patients:[]).filter(x=>x&&ids.has(String(x.id))).map(x=>({pid:String(x.id),text:String(x.text||'')}));
    s.unclear=(Array.isArray(r&&r.unclear)?r.unclear:[]).map(String).filter(Boolean);s.aiUsed=true;s.stage='review';save();render();
   }).catch(e=>{b.disabled=false;const el=$('#aiStat');if(el)el.textContent=sampleErr(e.code)});return'keep'},
- rmPart:v=>{const s=D.summaries.find(x=>x.id===S.sumId);readReview(s);s.parts.splice(+v,1);save()},
+ rmPart:v=>{const s=D.summaries.find(x=>x.id===S.sumId);readReview(s);s.parts.splice(+v,1);if(S.sumEdit!==s.id)save()},
  draftSum:v=>{const s=D.summaries.find(x=>x.id===v);readReview(s);save();toast(_('הטיוטה נשמרה','Draft saved'))},
  backSum:v=>{const s=D.summaries.find(x=>x.id===v);readReview(s);s.stage='compose';save()},
  pubSum:v=>{const s=D.summaries.find(x=>x.id===v);readReview(s);
@@ -2019,7 +2048,7 @@ document.addEventListener('change',e=>{const t=e.target;const c=t.dataset&&t.dat
   else if(c==='lmacc'){const a=new Set(D.leadAccess||[]);if(t.checked)a.add(t.value);else a.delete(t.value);D.leadAccess=[...a];save();toast(_('ההרשאה עודכנה','Access updated'))}
  else if(t.dataset&&t.dataset.calc){S.calc[t.dataset.calc]=+t.value;const id=t.id;render();const el=document.getElementById(id);if(el)el.focus()}
  else if(t.dataset&&t.dataset.roster&&S.role==='manager'){const[d,k]=t.dataset.roster.split('|');D.roster[d]=D.roster[d]||{};delete D.roster[d].demo;D.roster[d][k]=t.value;save();render();toast(_('השיבוץ נשמר','Roster saved'))}
- else if(t.id==='addPid'&&t.value){const s=D.summaries.find(x=>x.id===S.sumId);readReview(s);save();render()}});
+ else if(t.id==='addPid'&&t.value){const s=D.summaries.find(x=>x.id===S.sumId);readReview(s);if(S.sumEdit!==s.id)save();render()}});
 document.addEventListener('submit',e=>{if(e.target.id==='lgForm'){e.preventDefault();submitLogin()}});
 document.addEventListener('focusout',()=>flushRemote());
 // importing the data file exported from the previous version
