@@ -519,11 +519,12 @@ function timeline(p){
  for(let i=14;i>=0;i--){const d=add(TD,-i);instances(d).forEach(x=>{const v=x.log.att&&x.log.att[p.id];if(v==='l'||v==='a')ev.push({t:'att',date:d,time:x.time,html:`<span class="pill ${v==='l'?'warn':'bad'}">${v==='l'?_('איחר','Late'):_('נעדר','Absent')}</span> ${esc(nm(x.title))} <span class="muted">· ${staffName(x.log.by||x.staff)}</span>`})})}
  if(pr.incidents)D.incidents.filter(i=>i.pid===p.id).forEach(i=>ev.push({t:'inc',date:i.date,time:i.time,html:incidentBlock(i,false),raw:true}));
  D.notes.filter(n=>n.pid===p.id&&canSeeNote(n)).forEach(n=>ev.push({t:'sum',date:n.date,time:n.time||'',raw:true,html:noteBlock(n)}));
- if(pr.daily)D.summaries.filter(s=>s.status==='published').forEach(s=>s.parts.filter(x=>x.pid===p.id).forEach(x=>ev.push({t:'sum',date:s.date,time:'23:59',raw:true,html:`<div class="note"><div class="note-h"><span class="typ">${_('סיכום יום','Daily summary')}</span><b style="color:var(--ink)">${staffName(s.author)}</b><span>${fmtDate(s.date)}</span>${editedChip(s)}</div>${topicChips(x.topics)}<div class="note-b" dir="auto">${esc(x.text)}</div>${readBar(itemOf('sum:'+s.id))}</div>`})));
+ if(pr.daily)D.summaries.filter(s=>s.status==='published').forEach(s=>s.parts.filter(x=>x.pid===p.id).forEach(x=>ev.push({t:'sum',date:s.date,time:'23:59',raw:true,html:`<div class="note"><div class="note-h"><span class="typ">${_('סיכום יום','Daily summary')}</span><b style="color:var(--ink)">${staffName(s.author)}</b><span>${fmtDate(s.date)}</span>${editedChip(s)}</div>${topicChips(x.topics)}<div class="note-b" dir="auto">${esc(x.text)}</div><div class="toolbar">${sayBtn('sum:'+s.id+'|'+p.id)}</div>${readBar(itemOf('sum:'+s.id))}</div>`})));
  p.history.forEach(h=>ev.push({t:'stage',date:h.date,time:'00:00',html:`${_('מעבר ל','Moved to ')}${stagePill(h.stage)} <span class="muted">· ${staffName(h.by)}</span>${h.note?` <span class="muted" dir="auto">· ${esc(h.note)}</span>`:''}`}));
  const hidden=D.notes.filter(n=>n.pid===p.id&&!canSeeNote(n)).length;
  return{ev:ev.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)),hidden};
 }
+const sayBtn=key=>`<button type="button" class="btn sm ghost saybtn" data-say="${key}">🔊 ${_('השמעה','Listen')}</button>`;
 const editedChip=o=>o&&o.editedAt?`<span class="chip" title="${esc(new Date(o.editedAt).toLocaleString(S.lang==='he'?'he-IL':'en-GB'))}">✎ ${_('נערך','Edited')} ${fmtDate(o.editedAt.slice(0,10))}</span>`:'';
 const canEditOwn=o=>!!o&&o.author===me()&&o.source!=='whatsapp';
 const prevVers=(o,show)=>{const h=(o&&o.history)||[];if(!h.length||!(S.role==='manager'||o.author===me()))return'';
@@ -533,7 +534,7 @@ const sumVer=v=>[v.general,...(v.parts||[]).map(x=>(pat(x.pid)?.name||'')+': '+x
 function noteBlock(n){
  const t=trShown('note',n.id)&&n.tr;
  return`<div class="note"><div class="note-h">${n.kind==='therapy'?`<span class="typ individual">${_('סיכום טיפולי','Therapy summary')}</span>`:`<span class="typ">${_('תיעוד','Note')}</span>`}<b style="color:var(--ink)">${staffName(n.author)}</b><span>${when(n.date,n.time)}</span>${n.followup?`<span class="pill ${n.resolved?'ok':'warn'}">${n.resolved?_('טופל','Handled'):_('למעקב','Follow-up')}</span>`:''}${n.session?`<span class="chip">${_('מקושר למפגש','Linked to session')}</span>`:''}${n.source==='whatsapp'?`<span class="chip">${_('מקבוצת הוואטסאפ','From the WhatsApp group')}</span>`:''}${editedChip(n)}</div>
- ${topicChips(n.topics)}<div class="note-b" dir="auto">${esc(t?n.tr:n.text)}</div>${n.task?`<div class="taskln ${n.taskDone?'done':''}">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(n.task)}</span> ${n.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:''}</div>`:''}${trControl('note',n.id,n)}${canEditOwn(n)?`<div class="toolbar"><button class="btn sm ghost" data-a="noteEdit" data-v="${n.id}">✎ ${_('עריכה','Edit')}</button></div>`:''}${prevVers(n,noteVer)}${readBar(itemOf('note:'+n.id))}</div>`;
+ ${topicChips(n.topics)}<div class="note-b" dir="auto">${esc(t?n.tr:n.text)}</div>${n.task?`<div class="taskln ${n.taskDone?'done':''}">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(n.task)}</span> ${n.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:''}</div>`:''}${trControl('note',n.id,n)}<div class="toolbar">${sayBtn('note:'+n.id)}${canEditOwn(n)?`<button class="btn sm ghost" data-a="noteEdit" data-v="${n.id}">✎ ${_('עריכה','Edit')}</button>`:''}</div>${prevVers(n,noteVer)}${readBar(itemOf('note:'+n.id))}</div>`;
 }
 /* ---------- summaries: who should read them, topics, tasks, one connected thread per patient ---------- */
 const READ_FROM='2026-11-02';
@@ -561,7 +562,7 @@ const itemOf=key=>sumItems(true).find(i=>i.key===key);
 function newSumsCard(){
  if(!P().daily)return'';const u=unreadSums();
  return`<section class="card"><div class="card-h"><h2>${_('סיכומים חדשים','New summaries')}</h2><span class="chip ${u.length?'warn':''}">${u.length} ${_('לא נקראו','unread')}</span></div>
- ${u.length?`<div class="list">${u.slice(0,8).map(it=>`<div class="row unread"><div class="grow"><div class="t">${it.type} · ${it.pids.map(id=>esc(pat(id)?.name||'')).filter(Boolean).join(', ')||_('כללי','General')}</div><div class="s">${esc(staffName(it.author))} · ${fmtDate(it.date)}</div><div class="note-b" dir="auto">${esc(trim(it.text||'',150))}</div></div><div class="la"><button class="btn sm ghost" data-a="sumOpen" data-v="${it.key}">${_('פתיחה','Open')}</button><button class="btn sm primary" data-a="sumRead" data-v="${it.key}">${_('קראתי','I read it')}</button></div></div>`).join('')}</div>${u.length>8?`<p class="hint">${_('ועוד','And')} ${u.length-8} ${_('נוספים','more')}</p>`:''}`:empty(_('קראת את כל הסיכומים החדשים.','You are up to date.'))}</section>`;
+ ${u.length?`<div class="list">${u.slice(0,8).map(it=>`<div class="row unread"><div class="grow"><div class="t">${it.type} · ${it.pids.map(id=>esc(pat(id)?.name||'')).filter(Boolean).join(', ')||_('כללי','General')}</div><div class="s">${esc(staffName(it.author))} · ${fmtDate(it.date)}</div><div class="note-b" dir="auto">${esc(trim(it.text||'',150))}</div></div><div class="la">${sayBtn(it.key)}<button class="btn sm ghost" data-a="sumOpen" data-v="${it.key}">${_('פתיחה','Open')}</button><button class="btn sm primary" data-a="sumRead" data-v="${it.key}">${_('קראתי','I read it')}</button></div></div>`).join('')}</div>${u.length>8?`<p class="hint">${_('ועוד','And')} ${u.length-8} ${_('נוספים','more')}</p>`:''}`:empty(_('קראת את כל הסיכומים החדשים.','You are up to date.'))}</section>`;
 }
 function careItems(p,all){
  return sumItems(all).filter(it=>it.pids.includes(p.id)).map(it=>{
@@ -581,7 +582,7 @@ function careThread(p){
   <div class="note-b" dir="auto">${esc(i.text&&i.text.length>600?trim(i.text,600):i.text||'')}</div>${i.text&&i.text.length>600?`<details><summary>${_('להמשך','More')}</summary><div class="note-b" dir="auto">${esc(i.text)}</div></details>`:''}
   ${i.task?`<div class="taskln ${i.taskDone?'done':''}">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(i.task)}</span> ${i.taskDone?`<span class="pill ok">${_('בוצע','Done')}</span>`:`<span class="pill warn">${_('פתוחה','Open')}</span>`}</div>`:''}
   ${kids.length?`<div class="s">${kids.length} ${_('תגובות המשך','follow-ups')}: ${kids.map(k=>`${esc(staffName(k.author))} (${fmtDate(k.date)})`).join(', ')}</div>`:''}
-  <div class="toolbar">${canEditOwn(i.obj)?(i.key.startsWith('sum:')?`<button class="btn sm ghost" data-a="sumEdit" data-v="${i.obj.id}">✎ ${_('עריכה','Edit')}</button>`:`<button class="btn sm ghost" data-a="noteEdit" data-v="${i.obj.id}">✎ ${_('עריכה','Edit')}</button>`):''}${!p.archived&&P().daily?`<button class="btn sm ghost" data-a="note" data-v="${p.id}|${i.key}">${_('המשך מכאן','Continue from here')}</button><button class="btn sm ghost" data-a="tAdd" data-v="${p.id}|${i.key}">+ ${_('משימת מעקב','Follow-up task')}</button>`:''}</div>${(()=>{const ts=D.tasks.filter(t=>t.src===i.key);return ts.length?`<div class="s">${ts.map(t=>`${t.done?'✓':'○'} ${esc(trim(t.text,60))} (${esc(taskToLbl(t)||_('לוח המשמרת','shift board'))})`).join(' · ')}</div>`:''})()}${readBar(i)}</div>`};
+  <div class="toolbar">${sayBtn(i.key.startsWith('sum:')?i.key+'|'+p.id:i.key)}${canEditOwn(i.obj)?(i.key.startsWith('sum:')?`<button class="btn sm ghost" data-a="sumEdit" data-v="${i.obj.id}">✎ ${_('עריכה','Edit')}</button>`:`<button class="btn sm ghost" data-a="noteEdit" data-v="${i.obj.id}">✎ ${_('עריכה','Edit')}</button>`):''}${!p.archived&&P().daily?`<button class="btn sm ghost" data-a="note" data-v="${p.id}|${i.key}">${_('המשך מכאן','Continue from here')}</button><button class="btn sm ghost" data-a="tAdd" data-v="${p.id}|${i.key}">+ ${_('משימת מעקב','Follow-up task')}</button>`:''}</div>${(()=>{const ts=D.tasks.filter(t=>t.src===i.key);return ts.length?`<div class="s">${ts.map(t=>`${t.done?'✓':'○'} ${esc(trim(t.text,60))} (${esc(taskToLbl(t)||_('לוח המשמרת','shift board'))})`).join(' · ')}</div>`:''})()}${readBar(i)}</div>`};
  const col=(list,kind)=>list.filter(i=>i.kind===kind).map(entry).join('');
  return`<div class="toolbar">${!p.archived&&P().daily?`<button class="btn sm primary" data-a="note" data-v="${p.id}">+ ${_('תיעוד / סיכום','Note / summary')}</button>`:''}${S.role==='manager'?`<button class="btn sm" data-a="exportSums" data-v="${p.id}">${_('ייצוא כל הסיכומים לקובץ','Export all summaries to a file')}</button>`:''}</div>
  <div class="grid2 even"><section class="card"><div class="card-h"><h2>${_('משימות שניתנו למטופל','Tasks given to the patient')}</h2><span class="chip ${open.length?'warn':''}">${open.length} ${_('פתוחות','open')}</span></div>
@@ -827,7 +828,7 @@ function reviewCard(s,editing){
 }
 function publishedCard(s){
  return`<section class="card"><div class="card-h"><h2>${fmtDate(s.date,{weekday:'long',day:'numeric',month:'long'})} · ${staffName(s.author)}</h2>${s.status==='published'?`<span class="pill ok">${_('פורסם','Published')}</span>`:`<span class="pill warn">${_('טיוטה','Draft')}</span>`}${editedChip(s)}</div>
- <div class="form">${s.status==='published'&&canEditOwn(s)?`<div class="toolbar"><button class="btn sm" data-a="sumEdit" data-v="${s.id}">✎ ${_('עריכת הסיכום','Edit this summary')}</button></div>`:''}<div class="note-b" dir="auto">${esc(s.general)}</div>
+ <div class="form"><div class="toolbar">${sayBtn('sum:'+s.id)}${s.status==='published'&&canEditOwn(s)?`<button class="btn sm" data-a="sumEdit" data-v="${s.id}">✎ ${_('עריכת הסיכום','Edit this summary')}</button>`:''}</div><div class="note-b" dir="auto">${esc(s.general)}</div>
  ${s.parts.map(x=>`<div class="ppub"><button class="link" data-a="openP" data-v="${x.pid}">${esc(pat(x.pid)?.name||'')}</button>${topicChips(x.topics)}<div class="note-b" dir="auto">${esc(x.text)}</div>${x.task?`<div class="taskln">${_('משימה למטופל','Task for the patient')}: <span dir="auto">${esc(x.task)}</span></div>`:''}${s.status==='published'&&!pat(x.pid)?.archived?`<div class="toolbar"><button class="btn sm ghost" data-a="tAdd" data-v="${x.pid}|sum:${s.id}">+ ${_('משימת מעקב לצוות','Follow-up task for the team')}</button></div>`:''}</div>`).join('')}
  ${prevVers(s,sumVer)}${s.status==='published'?readBar(itemOf('sum:'+s.id)):''}<details class="orig"><summary>${_('הנוסח המקורי','Original text')}${s.aiUsed?` · ${_('נוסח ערוך בעזרת AI ואושר ע״י הכותב/ת','edited with AI help, approved by the author')}`:''}</summary><div class="note-b" dir="auto">${esc(s.original)}</div></details></div></section>`;
 }
@@ -1590,7 +1591,7 @@ const A={
  resolve:v=>{const[k,id]=v.split(':');const o=k==='inc'?D.incidents.find(n=>n.id===id):D.notes.find(n=>n.id===id);if(o){o.resolved=true;o.resolvedBy=me();o.resolvedAt=TD}save();toast(_('סומן כטופל','Marked as handled'))},
  restore:v=>{delete D.log[v];save()},
  about:()=>{const mgr=SH.on&&sharedRole()==='manager'&&adminIn();const hasDemo=D.patients.some(p=>p.demo)||D.staff.some(s=>s.demo);
-  modal(_('על המערכת','About the system'),`<div class="form"><p class="chip" dir="ltr">${_('גרסה','Version')} ${APP_BUILD}</p><p>${_('כל אזור מחובר לאחרים: נוכחות, חריגות וסיכומים נכנסים לתיק המטופל, וכל תנועה כספית מעדכנת את הקופה ואת היתרות.','Every area is connected: attendance, incidents and summaries flow into the patient file, and every money entry updates the cash box and balances.')}</p>
+  modal(_('על המערכת','About the system'),`<div class="form"><p class="chip" dir="ltr">${_('גרסה','Version')} ${APP_BUILD}</p><div class="toolbar"><button class="btn sm" data-a="voices">🔊 ${_('קול ההקראה באנגלית','English reading voice')}</button></div><p>${_('כל אזור מחובר לאחרים: נוכחות, חריגות וסיכומים נכנסים לתיק המטופל, וכל תנועה כספית מעדכנת את הקופה ואת היתרות.','Every area is connected: attendance, incidents and summaries flow into the patient file, and every money entry updates the cash box and balances.')}</p>
   ${SH.on?`<p>${_('הנתונים משותפים לכל הצוות ומתעדכנים בזמן אמת בכל מכשיר. כל אחד רואה את המסכים של התפקיד שלו, ונתוני הכספים של המנהל מוסתרים משאר הצוות.','The data is shared with the whole team and updates live on every device. Everyone sees the screens for their own role, and the manager’s finance data is hidden from the rest of the team.')}</p>
    <p class="hint">${_('זהו שלב ניסיון: לפני שמזינים פרטים מזהים של מטופלים אמיתיים, כדאי לבדוק עם הנהלת רטורנו את הדרישות לשמירת מידע רפואי.','This is a trial stage: before entering identifying details of real patients, check the requirements for storing medical information with Retorno’s management.')}</p>
    ${mgr?`<div class="toolbar"><button class="btn" id="dmL">${_('טעינת נתוני דוגמה','Load sample data')}</button>${hasDemo?`<button class="btn danger" id="dmC">${_('מחיקת נתוני הדוגמה','Delete sample data')}</button>`:''}</div>`:''}`
@@ -1987,6 +1988,7 @@ const A={
    const now=new Date().toISOString();s.history=[...(s.history||[]),{general:old.general,parts:old.parts.map(x=>({pid:x.pid,text:x.text})),until:now}].slice(-10);s.editedAt=now;s.editedBy=me();save();toast(_('השינויים נשמרו','Changes saved'))}
   else toast(_('לא היו שינויים','Nothing changed'));
   S.sumEdit=null;S.sumSnap=null},
+ voices:()=>{if(window.RETORNO_VOICES)window.RETORNO_VOICES();return'keep'},
  noteEdit:v=>{const n=D.notes.find(x=>x.id===v);if(!canEditOwn(n))return'keep';
   modal(`${_('עריכה','Edit')} · ${n.kind==='therapy'?_('סיכום טיפולי','Therapy summary'):_('תיעוד יומי','Daily note')} · ${pat(n.pid)?.name||''}`,`<div class="form"><p class="hint">${fmtDate(n.date)} ${n.time||''} · ${_('השינויים יופיעו לצוות עם סימון "נערך". הנוסח הקודם נשמר.','Changes show for the team marked "Edited". The earlier version is kept.')}</p>
    ${area('ent',_('תוכן','Text'),n.text)}
@@ -2066,6 +2068,50 @@ if(window.claude&&typeof window.claude.use==='function'){
 }else{load();render()}
 if(window.claude&&typeof window.claude.use==='function'){window.claude.use('sample').then(s=>{if(s){SAMPLE=s;render()}}).catch(()=>{});window.claude.use('downloads').then(d=>{DL=d}).catch(()=>{})}
 document.addEventListener('input',e=>{const t=e.target;if(t.type==='range'&&t.dataset.calc){S.calc[t.dataset.calc]=+t.value;render();const el=document.getElementById(t.id);if(el)el.focus()}});
+/* ---------- listening: summaries read aloud (English in a soft Australian male voice when the phone has one) ---------- */
+(function(){
+ const ss=window.speechSynthesis;
+ const st=document.createElement('style');st.textContent=`.saybtn.on{background:var(--accent-soft,#e7f0fb)}`;document.head.appendChild(st);
+ const VKEY='retorno_voice_en';
+ const voices=()=>ss?ss.getVoices():[];
+ const MALE=/william|gordon|lee|russell|james|male|en-au-x-aub|en-au-x-aud|aub-|aud-|#male/i, FEMALE=/natasha|karen|catherine|female|en-au-x-aua|en-au-x-auc/i;
+ function enVoice(){const v=voices();let id='';try{id=localStorage.getItem(VKEY)||''}catch(e){}
+  return v.find(x=>x.voiceURI===id)||v.find(x=>/en[-_]AU/i.test(x.lang)&&MALE.test(x.name+' '+x.voiceURI))||v.find(x=>/en[-_]AU/i.test(x.lang)&&!FEMALE.test(x.name+' '+x.voiceURI))||v.find(x=>/en[-_]AU/i.test(x.lang))||v.find(x=>/en[-_]GB/i.test(x.lang)&&MALE.test(x.name))||v.find(x=>/^en/i.test(x.lang))||null}
+ const heVoice=()=>voices().find(x=>/^(he|iw)/i.test(x.lang))||null;
+ function textOf(key){const[k,pid]=key.split('|');
+  if(k.startsWith('note:')){const n=D.notes.find(x=>x.id===k.slice(5));return n?[n.text,n.task?_('משימה למטופל: ','Task for the patient: ')+n.task:''].filter(Boolean).join('. '):''}
+  if(k.startsWith('sum:')){const s=D.summaries.find(x=>x.id===k.slice(4));if(!s)return'';
+   if(pid){const x=s.parts.find(y=>y.pid===pid);return x?x.text:''}
+   return[s.general,...s.parts.map(x=>(pat(x.pid)?.name||'')+'. '+x.text)].filter(Boolean).join('. ')}
+  return''}
+ // short pieces: phones stop long speech; each piece gets the voice of its language
+ const pieces=t=>String(t).replace(/\s+/g,' ').split(/(?<=[.!?…:;\n])\s+/).flatMap(x=>x.length>220?x.match(/.{1,200}(\s|$)/g):[x]).map(x=>x.trim()).filter(Boolean);
+ let curBtn=null;
+ function stopAll(){if(ss)ss.cancel();if(curBtn){curBtn.classList.remove('on');curBtn.innerHTML='🔊 '+_('השמעה','Listen')}curBtn=null}
+ function play(btn){
+  if(!ss||!window.SpeechSynthesisUtterance){toast(_('הטלפון הזה לא תומך בהקראה.','This phone cannot read text aloud.'));return}
+  const txt=textOf(btn.dataset.say);if(!txt.trim()){toast(_('אין טקסט להשמעה','Nothing to read'));return}
+  stopAll();curBtn=btn;btn.classList.add('on');btn.innerHTML='⏹ '+_('עצירה','Stop');
+  const en=enVoice(),he=heVoice(),list=pieces(txt);let left=list.length;
+  if(!en)toast(_('בטלפון הזה אין קול באנגלית אוסטרלית – נבחר הקול הקרוב ביותר.','No Australian English voice on this phone – using the closest one.'));
+  list.forEach(p=>{const u=new SpeechSynthesisUtterance(p);const hebrew=isHe(p);
+   if(hebrew){u.lang='he-IL';if(he)u.voice=he}else{u.lang=en?en.lang:'en-AU';if(en)u.voice=en}
+   u.rate=hebrew?1:0.9;u.pitch=hebrew?1:0.92;u.volume=1;
+   u.onend=u.onerror=()=>{if(--left<=0&&curBtn===btn)stopAll()};ss.speak(u)});
+ }
+ document.addEventListener('click',e=>{const b=e.target.closest('[data-say]');if(!b)return;e.preventDefault();e.stopPropagation();if(curBtn===b)stopAll();else play(b)},true);
+ // choose the English voice (from the About screen)
+ window.RETORNO_VOICES=()=>{const v=voices().filter(x=>/^en/i.test(x.lang)).sort((a,b)=>(/AU/i.test(b.lang)-/AU/i.test(a.lang)));const curV=enVoice();
+  modal(_('קול ההקראה באנגלית','English reading voice'),`<div class="form"><p class="hint">${_('ברירת המחדל: קול גברי באנגלית אוסטרלית, אם קיים בטלפון. אפשר לבחור קול אחר ולשמוע דוגמה.','Default: a male Australian English voice, if the phone has one. You can pick another voice and hear a sample.')}</p>
+   <div class="list">${v.map(x=>`<label class="row"><input type="radio" name="vsel" value="${esc(x.voiceURI)}" ${curV&&curV.voiceURI===x.voiceURI?'checked':''}> <span class="grow">${esc(x.name)} <span class="s">${esc(x.lang)}</span></span></label>`).join('')||empty(_('לא נמצאו קולות באנגלית בטלפון.','No English voices found on this phone.'))}</div>
+   <div class="toolbar"><button type="button" class="btn sm" id="vtry">🔊 ${_('דוגמה','Sample')}</button></div></div>`,
+   ()=>{const c=document.querySelector('input[name=vsel]:checked');try{if(c)localStorage.setItem(VKEY,c.value)}catch(e){}return _('הקול נשמר בטלפון הזה','Voice saved on this phone')});
+  const t=$('#vtry');if(t)t.onclick=()=>{const c=document.querySelector('input[name=vsel]:checked');const vv=voices().find(x=>c&&x.voiceURI===c.value)||enVoice();ss.cancel();const u=new SpeechSynthesisUtterance('Hi, this is how the daily summaries will sound.');if(vv){u.voice=vv;u.lang=vv.lang}u.rate=0.9;u.pitch=0.92;ss.speak(u)}};
+ if(ss){ss.getVoices();ss.onvoiceschanged=()=>{}}
+ new MutationObserver(()=>{if(curBtn&&!curBtn.isConnected)stopAll()}).observe(document.body,{childList:true,subtree:true});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopAll()});
+})();
+
 /* ---------- speaking instead of typing: a microphone button on every text box ---------- */
 (function(){
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
