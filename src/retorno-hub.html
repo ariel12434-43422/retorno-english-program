@@ -2049,7 +2049,7 @@ const A={
  resolve:v=>{const[k,id]=v.split(':');const o=k==='inc'?D.incidents.find(n=>n.id===id):D.notes.find(n=>n.id===id);if(o){o.resolved=true;o.resolvedBy=me();o.resolvedAt=TD}save();toast(_('סומן כטופל','Marked as handled'))},
  restore:v=>{delete D.log[v];save()},
  about:()=>{const mgr=SH.on&&sharedRole()==='manager'&&adminIn();const hasDemo=D.patients.some(p=>p.demo)||D.staff.some(s=>s.demo);
-  modal(_('על המערכת','About the system'),`<div class="form"><p class="chip" dir="ltr">${_('גרסה','Version')} ${APP_BUILD}</p><div class="toolbar"><button class="btn sm" data-a="voices">🔊 ${_('קול ההקראה באנגלית','English reading voice')}</button></div><p>${_('כל אזור מחובר לאחרים: נוכחות, חריגות וסיכומים נכנסים לתיק המטופל, וכל תנועה כספית מעדכנת את הקופה ואת היתרות.','Every area is connected: attendance, incidents and summaries flow into the patient file, and every money entry updates the cash box and balances.')}</p>
+  modal(_('על המערכת','About the system'),`<div class="form"><p class="chip" dir="ltr">${_('גרסה','Version')} ${APP_BUILD}</p><div class="toolbar"><button class="btn sm" data-a="voices">🔊 ${_('קולות ההקראה','Reading voices')}</button></div><p>${_('כל אזור מחובר לאחרים: נוכחות, חריגות וסיכומים נכנסים לתיק המטופל, וכל תנועה כספית מעדכנת את הקופה ואת היתרות.','Every area is connected: attendance, incidents and summaries flow into the patient file, and every money entry updates the cash box and balances.')}</p>
   ${SH.on?`<p>${_('הנתונים משותפים לכל הצוות ומתעדכנים בזמן אמת בכל מכשיר. כל אחד רואה את המסכים של התפקיד שלו, ונתוני הכספים של המנהל מוסתרים משאר הצוות.','The data is shared with the whole team and updates live on every device. Everyone sees the screens for their own role, and the manager’s finance data is hidden from the rest of the team.')}</p>
    <p class="hint">${_('זהו שלב ניסיון: לפני שמזינים פרטים מזהים של מטופלים אמיתיים, כדאי לבדוק עם הנהלת רטורנו את הדרישות לשמירת מידע רפואי.','This is a trial stage: before entering identifying details of real patients, check the requirements for storing medical information with Retorno’s management.')}</p>
    ${mgr?`<div class="toolbar"><button class="btn" id="dmL">${_('טעינת נתוני דוגמה','Load sample data')}</button>${hasDemo?`<button class="btn danger" id="dmC">${_('מחיקת נתוני הדוגמה','Delete sample data')}</button>`:''}</div>`:''}`
@@ -2535,7 +2535,16 @@ document.addEventListener('input',e=>{const t=e.target;if(t.type==='range'&&t.da
  const MALE=/william|gordon|lee|russell|james|male|en-au-x-aub|en-au-x-aud|aub-|aud-|#male/i, FEMALE=/natasha|karen|catherine|female|en-au-x-aua|en-au-x-auc/i;
  function enVoice(){const v=voices();let id='';try{id=localStorage.getItem(VKEY)||''}catch(e){}
   return v.find(x=>x.voiceURI===id)||v.find(x=>/en[-_]AU/i.test(x.lang)&&MALE.test(x.name+' '+x.voiceURI))||v.find(x=>/en[-_]AU/i.test(x.lang)&&!FEMALE.test(x.name+' '+x.voiceURI))||v.find(x=>/en[-_]AU/i.test(x.lang))||v.find(x=>/en[-_]GB/i.test(x.lang)&&MALE.test(x.name))||v.find(x=>/^en/i.test(x.lang))||null}
- const heVoice=()=>voices().find(x=>/^(he|iw)/i.test(x.lang))||null;
+ const HKEY='retorno_voice_he';
+ const heVoice=()=>{const v=voices().filter(x=>/^(he|iw)/i.test(x.lang));let id='';try{id=localStorage.getItem(HKEY)||''}catch(e){}return v.find(x=>x.voiceURI===id)||v.find(x=>x.localService)||v[0]||null};
+ // phones load their voices a moment after the page opens
+ const ready=()=>new Promise(res=>{if(!ss||voices().length)return res();let done=false;const fin=()=>{if(!done){done=true;res()}};try{ss.addEventListener('voiceschanged',fin,{once:true})}catch(e){}setTimeout(fin,1500)});
+ const isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ function noVoiceHelp(lang){const he=lang==='he';
+  modal(he?_('אין בטלפון קול לעברית','No Hebrew voice on this phone'):_('אין בטלפון קול לאנגלית','No English voice on this phone'),`<div class="form"><p>${_('ההקראה משתמשת בקולות שמותקנים בטלפון. צריך להתקין פעם אחת את הקול, ואחר כך זה יעבוד תמיד.','Reading aloud uses the voices installed on the phone. Install the voice once and it will always work.')}</p>
+   ${isIOS?`<ol><li>${_('הגדרות ← נגישות ← תוכן מוקרא ← קולות','Settings → Accessibility → Spoken Content → Voices')}</li><li>${he?_('בוחרים <b>עברית</b> ומורידים את הקול (Carmit).','Choose <b>Hebrew</b> and download the voice (Carmit).'):_('בוחרים <b>English (Australia)</b> ומורידים קול גברי (Gordon או Lee).','Choose <b>English (Australia)</b> and download a male voice (Gordon or Lee).')}</li><li>${_('סוגרים ופותחים מחדש את האפליקציה.','Close and reopen the app.')}</li></ol>`
+   :`<ol><li>${_('הגדרות ← מערכת (או "ניהול כללי") ← שפה וקלט ← פלט טקסט לדיבור','Settings → System (or General management) → Language & input → Text-to-speech output')}</li><li>${_('בוחרים מנוע <b>Google</b> (אם מופיע מנוע של סמסונג – מחליפים ל־Google).','Choose the <b>Google</b> engine (if a Samsung engine is selected – switch to Google).')}</li><li>${_('לוחצים על ⚙ ליד Google ← התקנת נתוני קול ← ','Tap ⚙ next to Google → Install voice data → ')}${he?'<b>עברית</b>':'<b>English (Australia)</b>'} ${_('← הורדה.','→ download.')}</li><li>${_('סוגרים ופותחים מחדש את האפליקציה.','Close and reopen the app.')}</li></ol>
+   <p class="hint">${_('אם Google לא מותקן: מורידים מחנות Play את "Speech Services by Google".','If Google is missing: install "Speech Services by Google" from the Play Store.')}</p>`}</div>`)}
  function textOf(key){const[k,pid]=key.split('|');
   if(k.startsWith('note:')){const n=D.notes.find(x=>x.id===k.slice(5));return n?[n.text,n.task?_('משימה למטופל: ','Task for the patient: ')+n.task:''].filter(Boolean).join('. '):''}
   if(k.startsWith('sum:')){const s=D.summaries.find(x=>x.id===k.slice(4));if(!s)return'';
@@ -2550,20 +2559,28 @@ document.addEventListener('input',e=>{const t=e.target;if(t.type==='range'&&t.da
   if(!ss||!window.SpeechSynthesisUtterance){toast(_('הטלפון הזה לא תומך בהקראה.','This phone cannot read text aloud.'));return}
   const txt=textOf(btn.dataset.say);if(!txt.trim()){toast(_('אין טקסט להשמעה','Nothing to read'));return}
   stopAll();curBtn=btn;btn.classList.add('on');btn.innerHTML='⏹ '+_('עצירה','Stop');
-  const en=enVoice(),he=heVoice(),list=pieces(txt);let left=list.length;
-  if(!en)toast(_('בטלפון הזה אין קול באנגלית אוסטרלית – נבחר הקול הקרוב ביותר.','No Australian English voice on this phone – using the closest one.'));
-  list.forEach(p=>{const u=new SpeechSynthesisUtterance(p);const hebrew=isHe(p);
+  ready().then(()=>{if(curBtn!==btn)return;
+  const en=enVoice(),he=heVoice(),list=pieces(txt);let left=list.length,started=false;
+  const firstHe=isHe(list[0]||'');
+  try{ss.cancel();ss.resume()}catch(e){}
+  // nothing heard after a few seconds: the phone has no voice for this language
+  setTimeout(()=>{if(!started&&curBtn===btn){stopAll();noVoiceHelp(firstHe?'he':'en')}},firstHe&&!he?2500:4000);
+  list.forEach(p=>{const u=new SpeechSynthesisUtterance(p);const hebrew=isHe(p);u.onstart=()=>{started=true};
    if(hebrew){u.lang='he-IL';if(he)u.voice=he}else{u.lang=en?en.lang:'en-AU';if(en)u.voice=en}
    u.rate=hebrew?1:0.9;u.pitch=hebrew?1:0.92;u.volume=1;
-   u.onend=u.onerror=()=>{if(--left<=0&&curBtn===btn)stopAll()};ss.speak(u)});
+   u.onend=()=>{started=true;if(--left<=0&&curBtn===btn)stopAll()};u.onerror=e=>{if(e&&e.error==='interrupted'||e&&e.error==='canceled')return;if(--left<=0&&curBtn===btn){stopAll();if(!started)noVoiceHelp(hebrew?'he':'en')}};ss.speak(u)});
+  });
  }
  document.addEventListener('click',e=>{const b=e.target.closest('[data-say]');if(!b)return;e.preventDefault();e.stopPropagation();if(curBtn===b)stopAll();else play(b)},true);
  // choose the English voice (from the About screen)
- window.RETORNO_VOICES=()=>{const v=voices().filter(x=>/^en/i.test(x.lang)).sort((a,b)=>(/AU/i.test(b.lang)-/AU/i.test(a.lang)));const curV=enVoice();
-  modal(_('קול ההקראה באנגלית','English reading voice'),`<div class="form"><p class="hint">${_('ברירת המחדל: קול גברי באנגלית אוסטרלית, אם קיים בטלפון. אפשר לבחור קול אחר ולשמוע דוגמה.','Default: a male Australian English voice, if the phone has one. You can pick another voice and hear a sample.')}</p>
+ window.RETORNO_VOICES=async()=>{await ready();const v=voices().filter(x=>/^en/i.test(x.lang)).sort((a,b)=>(/AU/i.test(b.lang)-/AU/i.test(a.lang)));const curV=enVoice();
+  modal(_('קולות ההקראה','Reading voices'),`<div class="form"><p class="hint">${_('ברירת המחדל: קול גברי באנגלית אוסטרלית, אם קיים בטלפון. אפשר לבחור קול אחר ולשמוע דוגמה.','Default: a male Australian English voice, if the phone has one. You can pick another voice and hear a sample.')}</p>
    <div class="list">${v.map(x=>`<label class="row"><input type="radio" name="vsel" value="${esc(x.voiceURI)}" ${curV&&curV.voiceURI===x.voiceURI?'checked':''}> <span class="grow">${esc(x.name)} <span class="s">${esc(x.lang)}</span></span></label>`).join('')||empty(_('לא נמצאו קולות באנגלית בטלפון.','No English voices found on this phone.'))}</div>
-   <div class="toolbar"><button type="button" class="btn sm" id="vtry">🔊 ${_('דוגמה','Sample')}</button></div></div>`,
-   ()=>{const c=document.querySelector('input[name=vsel]:checked');try{if(c)localStorage.setItem(VKEY,c.value)}catch(e){}return _('הקול נשמר בטלפון הזה','Voice saved on this phone')});
+   <div class="toolbar"><button type="button" class="btn sm" id="vtry">🔊 ${_('דוגמה','Sample')}</button></div>
+   <h4>${_('קול לעברית','Hebrew voice')}</h4>${(()=>{const hv=voices().filter(x=>/^(he|iw)/i.test(x.lang)),ch=heVoice();return hv.length?`<div class="list">${hv.map(x=>`<label class="row"><input type="radio" name="hsel" value="${esc(x.voiceURI)}" ${ch&&ch.voiceURI===x.voiceURI?'checked':''}> <span class="grow">${esc(x.name)} <span class="s">${esc(x.lang)}</span></span></label>`).join('')}</div><div class="toolbar"><button type="button" class="btn sm" id="htry">🔊 ${_('דוגמה בעברית','Hebrew sample')}</button></div>`:`<p class="hint">${_('אין בטלפון הזה קול לעברית.','This phone has no Hebrew voice.')} <button type="button" class="btn sm" id="hhelp">${_('איך מתקינים','How to install')}</button></p>`})()}</div>`,
+   ()=>{const c=document.querySelector('input[name=vsel]:checked'),h=document.querySelector('input[name=hsel]:checked');try{if(c)localStorage.setItem(VKEY,c.value);if(h)localStorage.setItem(HKEY,h.value)}catch(e){}return _('הקול נשמר בטלפון הזה','Voice saved on this phone')});
+  const ht=$('#htry');if(ht)ht.onclick=()=>{const c=document.querySelector('input[name=hsel]:checked');const vv=voices().find(x=>c&&x.voiceURI===c.value)||heVoice();ss.cancel();const u=new SpeechSynthesisUtterance('שלום, כך יישמעו הסיכומים בעברית.');u.lang='he-IL';if(vv)u.voice=vv;ss.speak(u)};
+  const hh=$('#hhelp');if(hh)hh.onclick=()=>noVoiceHelp('he');
   const t=$('#vtry');if(t)t.onclick=()=>{const c=document.querySelector('input[name=vsel]:checked');const vv=voices().find(x=>c&&x.voiceURI===c.value)||enVoice();ss.cancel();const u=new SpeechSynthesisUtterance('Hi, this is how the daily summaries will sound.');if(vv){u.voice=vv;u.lang=vv.lang}u.rate=0.9;u.pitch=0.92;ss.speak(u)}};
  if(ss){ss.getVoices();ss.onvoiceschanged=()=>{}}
  new MutationObserver(()=>{if(curBtn&&!curBtn.isConnected)stopAll()}).observe(document.body,{childList:true,subtree:true});
