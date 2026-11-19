@@ -400,7 +400,7 @@ function vDash(){
   <div class="kpi"><span class="lbl">${_('מזומן בקופה','Cash in hand')}</span><span class="val">${money(ps.cash)}</span><span class="sub">${pend.length} ${_('בקשות ממתינות לאישור','requests awaiting approval')}</span></div></div>`;
  h+=`<div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>${_('הלו״ז של היום','Today’s schedule')}</h2><button class="btn sm ghost" data-a="nav" data-v="schedule">${_('ללו״ז המלא','Full schedule')}</button></div>
   <div class="list">${all.map(x=>agRow(x,false)).join('')||empty(_('אין פעילויות היום.','No activities today.'))}</div></section>${incidentsCard(7)}</div>
-  <div class="stack">${myTasksCard()}${newSumsCard()}${shiftCard()}${alertsCard()}${tasksMini()}${stageCard()}${followCard()}</div></div>`;
+  <div class="stack">${permsTodayCard()}${myTasksCard()}${newSumsCard()}${shiftCard()}${alertsCard()}${tasksMini()}${stageCard()}${followCard()}</div></div>`;
  return h;
 }
 function quickActions(list){return`<div class="qa">${list.map(([a,v,icn,lbl,sub])=>`<button class="qa-b" data-a="${a}" ${v?`data-v="${v}"`:''}>${ic(icn)}<span><b>${lbl}</b><small>${sub}</small></span></button>`).join('')}</div>`}
@@ -410,7 +410,7 @@ function vHomeCounselor(){
  return`${unreadBanner()}<div class="page-h"><div><p class="eyebrow">${fmtDate(TD,{weekday:'long',day:'numeric',month:'long'})}</p><h1>${_('היום שלי','My day')}, ${staffName(me())}</h1></div></div>
  ${quickActions([['incident','',"flag",_('דיווח חריגה','Report an incident'),_('מה קרה ואיזו תגובה ניתנה','What happened and the response')],['nav','summary','pen',todaySum?_('סיכום היום','Today’s summary'):_('כתיבת סיכום יום','Write daily summary'),todaySum?(todaySum.status==='published'?_('פורסם לצוות','Published to the team'):_('טיוטה – ממתין לאישור','Draft – awaiting approval')):_('בכתיבה או בהכתבה','Type or dictate')],['nav','schedule','cal',_('לו״ז ונוכחות','Schedule & attendance'),`${mine.filter(x=>x.log.status==='planned').length} ${_('פעילויות פתוחות היום','open activities today')}`],['reportExp','','wallet',_('דיווח הוצאה','Report an expense'),_('פירוט לכל פריט – המנהל מסווג','Item by item – the manager classifies')],['reportSession','','check',_('דיווח פגישה עם מטפל','Report a therapist session'),_('נשלח לאישור המנהל','Goes to the manager for approval')],['shift','','badge',_('דיווח משמרת','Report a shift'),D.shifts.some(s=>s.staff===me()&&s.date===TD)?_('דווחה משמרת להיום','Today’s shift reported'):_('נרשם לעלות החודש','Counts toward this month’s cost')]])}
  <div class="grid2"><div class="stack"><section class="card"><div class="card-h"><h2>${_('הפעילויות שלי היום','My activities today')}</h2></div><div class="list">${mine.map(x=>agRow(x,false)).join('')||empty(_('אין לך פעילויות היום.','You have no activities today.'))}</div></section>${incidentsCard(3)}</div>
- <div class="stack">${clockCard()}${myTasksCard()}${newSumsCard()}${shiftCard()}${tasksMini()}${followCard()}</div></div>`;
+ <div class="stack">${clockCard()}${permsTodayCard()}${myTasksCard()}${newSumsCard()}${shiftCard()}${tasksMini()}${followCard()}</div></div>`;
 }
 function vHomeTherapist(){
  const mine=instances(TD).filter(x=>x.type!=='routine'&&x.staff===me());
@@ -559,6 +559,26 @@ function readBar(it){
  return btn||who?`<div class="readbar">${btn}${who}</div>`:'';
 }
 const itemOf=key=>sumItems(true).find(i=>i.key===key);
+/* ---------- standing permissions per patient (e.g. a daily phone call between set hours) ---------- */
+const WDN=()=>S.lang==='he'?['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const permOn=(x,d)=>(!x.start||x.start<=d)&&(!x.end||x.end>=d)&&(!(x.days&&x.days.length)||x.days.includes(dowOf(d)));
+const permWhen=x=>[x.days&&x.days.length&&x.days.length<7?x.days.map(i=>WDN()[i]).join(' '):_('כל יום','Every day'),x.from||x.to?`${x.from||''}–${x.to||''}`:'',x.end?`${_('עד','until')} ${fmtDate(x.end)}`:''].filter(Boolean).join(' · ');
+function permsToday(d){return activeP().flatMap(p=>(p.perms||[]).filter(x=>permOn(x,d)).map(x=>({p,x}))).sort((a,b)=>(a.x.from||'99').localeCompare(b.x.from||'99'))}
+function permsTodayCard(){const L=permsToday(TD);if(!L.length)return'';
+ return`<section class="card"><div class="card-h"><h2>${_('אישורים ושינויים להיום','Permissions & changes today')}</h2><span class="chip">${L.length}</span></div>
+ <div class="list">${L.map(({p,x})=>`<button class="row prow" data-a="openP" data-v="${p.id}"><div class="grow"><div class="t"><b>${esc(p.name)}</b>${x.from||x.to?` · <span class="num">${esc(x.from||'')}–${esc(x.to||'')}</span>`:''}</div><div class="s" dir="auto">${esc(x.text)}</div></div></button>`).join('')}</div></section>`}
+function permsCard(p,mgr){const L=p.perms||[];if(!L.length&&!mgr)return'';
+ return`<section class="card"><div class="card-h"><h2>${_('אישורים קבועים ושינויים בלו״ז','Standing permissions & schedule changes')}</h2>${mgr&&!p.archived?`<button class="btn sm" data-a="permAdd" data-v="${p.id}">+ ${_('הוספה','Add')}</button>`:''}</div>
+ <p class="hint">${_('מה שרשום כאן מופיע למדריכים בדף הבית בכל יום שהוא בתוקף.','Whatever is listed here shows on the counselors’ home page on every day it applies.')}</p>
+ <div class="list">${L.map(x=>`<div class="row"><div class="grow"><div class="t" dir="auto">${esc(x.text)}</div><div class="s">${esc(permWhen(x))}${x.start&&x.start>TD?` · ${_('מתחיל','starts')} ${fmtDate(x.start)}`:''}${x.end&&x.end<TD?` · <span class="pill">${_('הסתיים','Ended')}</span>`:''}</div></div>${mgr?`<div class="la"><button class="btn sm ghost" data-a="permEdit" data-v="${p.id}|${x.id}">✎</button><button class="btn sm ghost danger" data-a="permDel" data-v="${p.id}|${x.id}">${_('מחיקה','Delete')}</button></div>`:''}</div>`).join('')||empty(_('אין אישורים קבועים.','No standing permissions.'))}</div></section>`}
+function permForm(p,x){const v=x||{text:'',days:[],from:'',to:'',start:TD,end:''};
+ modal(`${x?_('עריכת אישור','Edit permission'):_('אישור קבוע חדש','New standing permission')} · ${p.name}`,`<div class="form">${area('pmt',_('מה מאושר','What is allowed'),v.text)}
+  <div class="f"><span class="lab">${_('באילו ימים','On which days')}</span><div class="checks sm">${WDN().map((n,i)=>`<label><input type="checkbox" class="pmd" value="${i}" ${!(v.days&&v.days.length)||v.days.includes(i)?'checked':''}>${n}</label>`).join('')}</div></div>
+  <div class="fr">${fld('pmf',_('משעה','From'),`<input id="pmf" type="time" value="${v.from||''}">`)}${fld('pmo',_('עד שעה','To'),`<input id="pmo" type="time" value="${v.to||''}">`)}</div>
+  <div class="fr">${fld('pms',_('מתאריך','Starting'),`<input id="pms" type="date" value="${v.start||''}">`)}${fld('pme',_('עד תאריך (לא חובה)','Until (optional)'),`<input id="pme" type="date" value="${v.end||''}">`)}</div></div>`,
+  ()=>{const t=val('pmt');if(!need(t,_('כתבו מה מאושר','Write what is allowed')))return'stay';let days=[...document.querySelectorAll('.pmd:checked')].map(c=>+c.value);if(!need(days.length,_('בחרו לפחות יום אחד','Pick at least one day')))return'stay';if(days.length===7)days=[];
+   const o={id:x?x.id:uid(),text:t,days,from:val('pmf')||'',to:val('pmo')||'',start:val('pms')||TD,end:val('pme')||'',by:me(),at:new Date().toISOString()};
+   p.perms=p.perms||[];if(x)p.perms[p.perms.findIndex(y=>y.id===x.id)]=o;else p.perms.push(o);return _('נשמר – יופיע למדריכים בימים שנבחרו','Saved – it will show for the counselors on the chosen days')})}
 function newSumsCard(){
  if(!P().daily)return'';const u=unreadSums();
  return`<section class="card"><div class="card-h"><h2>${_('סיכומים חדשים','New summaries')}</h2><span class="chip ${u.length?'warn':''}">${u.length} ${_('לא נקראו','unread')}</span></div>
@@ -631,7 +651,7 @@ function vProfile(p){
   const s=attStats(p.id);
   body=`<div class="grid2 even"><section class="card"><div class="card-h"><h2>${_('היסטוריית שלבים','Stage history')}</h2>${mgr&&!p.archived?`<button class="btn sm" data-a="stage" data-v="${p.id}">${_('שינוי שלב','Change stage')}</button>`:''}</div>
    <div class="timeline">${p.history.map(h=>`<div class="tl"><div>${stagePill(h.stage)} <span class="muted">${fmtDate(h.date,{day:'numeric',month:'short',year:'numeric'})}</span></div>${h.note?`<div class="hint" dir="auto">${esc(h.note)}</div>`:''}<div class="hint">${_('עודכן ע״י','By')} ${staffName(h.by)}</div></div>`).join('')}</div></section>
-   <div class="stack"><section class="card"><div class="card-h"><h2>${_('פרטים','Details')}</h2></div><dl class="kv"><dt>${_('תאריך הגעה','Arrival')}</dt><dd>${fmtDate(p.arrival,{day:'numeric',month:'long',year:'numeric'})}</dd><dt>${_('מדינה','Country')}</dt><dd>${esc(p.country)}</dd></dl></section>
+   <div class="stack">${permsCard(p,mgr)}<section class="card"><div class="card-h"><h2>${_('פרטים','Details')}</h2></div><dl class="kv"><dt>${_('תאריך הגעה','Arrival')}</dt><dd>${fmtDate(p.arrival,{day:'numeric',month:'long',year:'numeric'})}</dd><dt>${_('מדינה','Country')}</dt><dd>${esc(p.country)}</dd></dl></section>
    <section class="card"><div class="card-h"><h2>${_('נוכחות – 14 יום','Attendance – 14 days')}</h2><span class="pill ${s.rate>=90?'ok':s.rate>=75?'warn':'bad'}">${s.rate??'—'}%</span></div><dl class="kv"><dt>${_('נוכח','Present')}</dt><dd class="num">${s.p}</dd><dt>${_('איחר','Late')}</dt><dd class="num">${s.l}</dd><dt>${_('נעדר','Absent')}</dt><dd class="num">${s.a}</dd></dl></section></div></div>`;
  }else if(S.ptab==='care'){
   body=careThread(p);
@@ -668,7 +688,7 @@ function vProfile(p){
  <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab ${S.ptab===t[0]?'on':''}" role="tab" aria-selected="${S.ptab===t[0]}" data-a="ptab" data-v="${t[0]}">${t[1]}</button>`).join('')}</div>${body}`;
 }
 const methodLbl=m=>({cash:_('מזומן','Cash'),bank:_('העברה בנקאית','Bank transfer'),card:_('אשראי','Credit'),none:_('פנימי – ללא תנועת כסף','Internal – no money moved')}[m]||(m&&m.startsWith('staff:')?`${_('שולם ע״י','Paid by')} ${staffName(m.slice(6))}`:''));
-const kindLbl=x=>({in:_('הכנסה','Money in'),exp:_('הוצאה','Expense'),refund:_('הוחזר למטופל','Returned to patient'),cig:_('סיגריות','Cigarettes'),transfer:_('העברה בין קופות','Transfer between funds'),rebal:_('חלוקה מזומן / אשראי','Cash / credit split'),give:_('מזומן שניתן למטופל','Cash given to a patient'),staffpay:_('תשלום לצוות','Staff payment')}[x.kind]||x.kind);
+const kindLbl=x=>({in:_('הכנסה','Money in'),exp:_('הוצאה','Expense'),refund:_('הוחזר למטופל','Returned to patient'),cig:_('סיגריות','Cigarettes'),transfer:_('העברה בין קופות','Transfer between funds'),rebal:_('חלוקה מזומן / אשראי','Cash / credit split'),give:_('מזומן שניתן למטופל','Cash given to a patient'),staffpay:_('תשלום לצוות','Staff payment'),boxReturn:_('סגירת קופה – הוחזר לרטורנו','Box closed – returned to Retorno')}[x.kind]||x.kind);
 function txTable(rows,focus){
  return`<div class="tw"><table><thead><tr><th>${_('תאריך','Date')}</th><th>${_('סוג','Type')}</th><th>${_('פירוט','Details')}</th><th>${_('איך שולם','How paid')}</th><th>${_('על חשבון','Charged to')}</th><th class="n">${focus?_('השפעה','Effect'):_('סכום','Amount')}</th></tr></thead><tbody>
  ${rows.map(x=>{const mt=m=>focus.endsWith(':')?m.p.startsWith(focus):m.p===focus;const mine=focus?r2(x.moves.filter(mt).reduce((s,m)=>s+m.d,0)):x.amount;
@@ -679,9 +699,9 @@ function groupMoves(x){const m={};x.moves.forEach(v=>{m[v.p]=(m[v.p]||0)+v.d});r
 
 function vFin(){
  const mgr=S.role==='manager';
- const tabs=mgr?[['program',_('הכנסות ועלויות','Income & costs')],['personal',_('קופות אישיות','Personal funds')],['box',_('קופת רטורנו ומזומן','Retorno box & cash')]]:[['mine',_('ההוצאות שלי','My expenses')]];
+ const tabs=mgr?[['program',_('הכנסות ועלויות','Income & costs')],['funds',_('קרן וקופה – דוח','Fund & box report')],['personal',_('קופות אישיות','Personal funds')],['box',_('קופת רטורנו ומזומן','Retorno box & cash')]]:[['mine',_('ההוצאות שלי','My expenses')]];
  if(!tabs.some(t=>t[0]===S.ftab))S.ftab=tabs[0][0];
- const body={program:finProgram,personal:finPersonal,box:finBox,mine:finMine}[S.ftab]();
+ const body={program:finProgram,funds:finFunds,personal:finPersonal,box:finBox,mine:finMine}[S.ftab]();
  return`<div class="page-h"><div><p class="eyebrow">${_('שלוש קופות נפרדות שמתעדכנות מאותם רישומים','Three separate books, updated from the same records')}</p><h1>${_('כספים','Finance')}</h1></div></div>
  <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab ${S.ftab===t[0]?'on':''}" role="tab" aria-selected="${S.ftab===t[0]}" data-a="ftab" data-v="${t[0]}">${t[1]}</button>`).join('')}</div>${body}`;
 }
@@ -734,6 +754,57 @@ function finMine(){
  return`<div class="toolbar"><button class="btn primary" data-a="reportExp">${_('דיווח הוצאה','Report an expense')}</button><span class="hint">${_('מדווחים כל פריט ועל מה הוצא. המנהל מסווג ומאשר.','Report each item and what it was for. The manager classifies and approves.')}</span></div>
  <section class="card"><div class="card-h"><h2>${_('ההוצאות שדיווחתי','Expenses I reported')}</h2><span class="chip">${mine.length}</span></div>
  <div class="list">${mine.map(x=>`<div class="appr"><div class="grow"><div class="t">${fmtDate(x.date)} · ${methodLbl(x.method)}</div>${x.items?`<ul class="items">${x.items.map(i=>`<li><span dir="auto">${esc(i.desc)}</span><b class="num">${money(i.amount)}</b></li>`).join('')}</ul>`:`<div class="s" dir="auto">${esc(nm(x.desc))}</div>`}${x.status==='approved'&&x.moves.length?`<div class="chips">${groupMoves(x).map(g=>`<span class="chip">${esc(poolName(g.p))} ${money(-g.d)}</span>`).join('')}</div>`:''}</div><b class="num">${money(x.amount)}</b>${st(x)}</div>`).join('')||empty(_('עוד לא דיווחת הוצאות.','You have not reported any expenses yet.'))}</div></section>`;
+}
+/* ---------- the two books side by side: the program fund and Retorno's cash box, by month / year ---------- */
+function fundLedger(){const rows=[];let bal=0;
+ D.tx.filter(okTx).map((x,i)=>[x,i]).sort((a,b)=>a[0].date.localeCompare(b[0].date)||a[1]-b[1]).forEach(([x])=>{if(x.kind==='rebal')return;
+  const d=r2(x.moves.filter(m=>m.p==='program').reduce((t,m)=>t+m.d,0));if(Math.abs(d)<.005)return;bal=r2(bal+d);
+  const from=[...new Set(x.moves.filter(m=>m.p!=='program'&&(m.d<0===d>0)&&!m.box).map(m=>poolName(m.p)))];
+  const viaBox=x.moves.some(m=>m.box&&m.p==='retorno'&&m.m==='cash');
+  rows.push({x,d,bal,from,viaBox})});return rows}
+function periodOf(){const per=S.fper||'month',y=S.fyear||TD.slice(0,4);
+ if(per==='all')return{a:'0000',b:'9999',lbl:_('כל התקופה','All time')};
+ if(per==='year')return{a:y+'-01-01',b:y+'-12-31',lbl:y};
+ return{a:S.month+'-01',b:S.month+'-31',lbl:monthLbl(S.month)}}
+function finFunds(){
+ const P=periodOf(),inP=d=>d>=P.a&&d<=P.b;
+ const F=fundLedger(),B=boxLedger();
+ const open=L=>{const b=L.filter(r=>r.x.date<P.a);return b.length?b[b.length-1].bal:0};
+ const close=L=>{const b=L.filter(r=>r.x.date<=P.b);return b.length?b[b.length-1].bal:0};
+ const Fp=F.filter(r=>inP(r.x.date)),Bp=B.filter(r=>inP(r.x.date));
+ const fIn=r2(Fp.filter(r=>r.d>0).reduce((t,r)=>t+r.d,0)),fOut=r2(Fp.filter(r=>r.d<0).reduce((t,r)=>t-r.d,0));
+ const bRecv=r2(Bp.filter(r=>r.d>0&&r.x.kind==='in').reduce((t,r)=>t+r.d,0)),bBack=r2(Bp.filter(r=>r.d>0&&r.x.kind!=='in').reduce((t,r)=>t+r.d,0));
+ const bRet=r2(Bp.filter(r=>r.x.kind==='boxReturn').reduce((t,r)=>t-r.d,0)),bSpent=r2(Bp.filter(r=>r.d<0&&r.x.kind!=='boxReturn').reduce((t,r)=>t-r.d,0));
+ const exps=D.tx.filter(x=>okTx(x)&&x.kind==='exp'&&inP(x.date));const expT=r2(exps.reduce((t,x)=>t+x.amount,0));
+ const both=exps.filter(x=>x.moves.some(m=>m.p==='program')&&x.moves.some(m=>m.p==='retorno'&&m.m==='cash'&&m.d<0));
+ const ps=poolStats(),boxNow=boxCash(),fundCash=r2(pool('program').cash),patCash=r2(ps.cash-boxNow-fundCash);
+ const years=[...new Set([TD.slice(0,4),...D.tx.map(x=>x.date.slice(0,4))])].sort().reverse();
+ const per=S.fper||'month';
+ const kp=(l,v,sub,cls)=>`<div class="kpi ${cls||''}"><span class="lbl">${l}</span><span class="val">${money(v)}</span>${sub?`<span class="sub">${sub}</span>`:''}</div>`;
+ const fRow=r=>`<tr><td class="mono">${fmtDate(r.x.date)}</td><td><span class="muted">${kindLbl(r.x)}</span> · <span dir="auto">${esc(nm(r.x.desc))}</span>${r.viaBox?` <span class="chip">${_('שולם במזומן מקופת רטורנו','Paid in cash from the Retorno box')}</span>`:''}</td><td>${r.from.map(esc).join(', ')||'—'}</td><td class="n">${r.d>0?money(r.d):''}</td><td class="n neg">${r.d<0?money(-r.d):''}</td><td class="n"><b>${money(r.bal)}</b></td></tr>`;
+ const bRow=r=>`<tr ${r.x.kind==='boxReturn'||r.x.boxStart?'class="trh"':''}><td class="mono">${fmtDate(r.x.date)}</td><td><span class="muted">${r.x.boxStart?_('קופה חדשה מרטורנו','New box from Retorno'):kindLbl(r.x)}</span> · <span dir="auto">${esc(nm(r.x.desc))}</span></td><td>${r.who.length?r.who.map(esc).join(', '):r.x.moves.some(m=>m.p==='program')?_('קרן התוכנית','Program fund'):(r.d>0?'—':_('רטורנו','Retorno'))}</td><td class="n">${r.d>0?money(r.d):''}</td><td class="n neg">${r.d<0?money(-r.d):''}</td><td class="n"><b>${money(r.bal)}</b></td></tr>`;
+ const th=`<thead><tr><th>${_('תאריך','Date')}</th><th>${_('מה','What')}</th><th>${_('מאיפה / על חשבון','From / charged to')}</th><th class="n">${_('נכנס','In')}</th><th class="n">${_('יצא','Out')}</th><th class="n">${_('יתרה','Balance')}</th></tr></thead>`;
+ return`<div class="toolbar"><select data-c="fper" aria-label="${_('תקופה','Period')}"><option value="month" ${per==='month'?'selected':''}>${_('חודש','Month')}</option><option value="year" ${per==='year'?'selected':''}>${_('שנה','Year')}</option><option value="all" ${per==='all'?'selected':''}>${_('כל התקופה','All time')}</option></select>
+  ${per==='month'?monthNav():per==='year'?`<select data-c="fyear" aria-label="${_('שנה','Year')}">${years.map(y=>`<option ${y===(S.fyear||TD.slice(0,4))?'selected':''}>${y}</option>`).join('')}</select>`:''}
+  <span style="flex:1"></span><button class="btn" data-a="fundsCsv">${_('ייצוא לאקסל','Export to Excel')}</button></div>
+ <section class="card"><div class="card-h"><h2>${_('כמה כסף יש עכשיו','What there is right now')}</h2></div>
+  <div class="kpis">${kp(_('מזומן שאמור להיות אצלך','Cash you should have'),ps.cash,_('כל המזומן הפיזי','All physical cash'))}${kp(_('מזה: קופת רטורנו','Of it: Retorno box'),boxNow,'',boxNow<0?'warn':'')}${kp(_('מזה: מזומן של הקרן','Of it: fund cash'),fundCash)}${kp(_('מזה: מזומן אישי של מטופלים','Of it: patients’ own cash'),patCash)}</div>
+  <p class="hint">${_('יתרת קרן התוכנית (מזומן + בנק)','Program fund balance (cash + bank)')}: <b>${money(pool('program').t)}</b></p>
+  ${(()=>{const owe=r2(-pool('program').bank),can=r2(Math.min(owe,fundCash));return owe>.004?`<div class="banner"><div>${_('הקרן שילמה הוצאות דרך קופת רטורנו בסך','The fund paid expenses through the Retorno box totalling')} <b>${money(owe)}</b>. ${can>.004?`${_('אפשר להחזיר לקופה מהמזומן של הקרן','You can pay the box back from the fund’s cash')} (${money(can)}). <button class="btn sm" data-a="fundRepay">${_('החזרה לקופת רטורנו','Pay the box back')}</button>`:_('כשיהיה לקרן מזומן אפשר יהיה להחזיר לקופה.','Once the fund has cash, it can pay the box back.')}</div></div>`:''})()}</section>
+
+ <section class="card"><div class="card-h"><h2>${_('קרן התוכנית','Program fund')} · ${esc(P.lbl)}</h2><div class="la"><button class="btn sm" data-a="fundIn">+ ${_('הכנסה לקרן','Money into the fund')}</button><button class="btn sm" data-a="fundExp">− ${_('הוצאה מהקרן','Spend from the fund')}</button></div></div>
+  <p class="hint">${_('כסף של התוכנית: מה שמטופלים שילמו לתוכנית, יתרות קופה קטנה שהוחלט לא להחזיר, וכספים אחרים לשימוש התוכנית.','The program’s money: what patients paid to the program, petty-cash balances that were not returned, and other money for program use.')}</p>
+  <div class="kpis">${per!=='all'?kp(_('יתרת פתיחה','Opening balance'),open(F)):''}${kp(_('נכנס לקרן','Into the fund'),fIn)}${kp(_('הוצא מהקרן','Spent from the fund'),fOut)}${kp(per==='all'?_('יתרה','Balance'):_('יתרת סגירה','Closing balance'),close(F))}</div>
+  <div class="tw scrolly"><table>${th}<tbody>${Fp.slice().reverse().map(fRow).join('')||`<tr><td colspan="6">${empty(_('אין תנועות בקרן בתקופה הזו.','No fund movements in this period.'))}</td></tr>`}</tbody></table></div></section>
+
+ <section class="card"><div class="card-h"><h2>${_('קופת המזומן של רטורנו','Retorno cash box')} · ${esc(P.lbl)}</h2><div class="la"><button class="btn sm" data-a="boxNew">+ ${_('קבלת קופה מרטורנו','Cash from Retorno')}</button></div></div>
+  <p class="hint">${_('המזומן הפיזי שמקבלים מרטורנו (בדרך כלל 1,500 ₪). כל הוצאה במזומן מהקופה מקטינה אותה – גם כשהיא על חשבון מטופל ששילם באשראי. כשמקבלים קופה חדשה, כל התנועות הקודמות נשמרות.','The physical cash received from Retorno (usually ₪1,500). Every cash payment from it lowers it – also when it is charged to a patient who paid by credit. When a new box comes in, all earlier movements are kept.')}</p>
+  <div class="kpis">${per!=='all'?kp(_('יתרת פתיחה','Opening balance'),open(B)):''}${kp(_('התקבל מרטורנו','Received from Retorno'),bRecv)}${kp(_('יצא מהקופה בפועל','Actually paid out'),bSpent)}${bRet?kp(_('הוחזר לרטורנו','Returned to Retorno'),bRet):''}${bBack?kp(_('חזר לקופה','Came back into the box'),bBack):''}${kp(per==='all'?_('יתרה','Balance'):_('יתרת סגירה','Closing balance'),close(B))}</div>
+  <div class="tw scrolly"><table>${th}<tbody>${Bp.slice().reverse().map(bRow).join('')||`<tr><td colspan="6">${empty(_('אין תנועות בקופה בתקופה הזו.','No box movements in this period.'))}</td></tr>`}</tbody></table></div></section>
+
+ <section class="card"><div class="card-h"><h2>${_('בלי ספירה כפולה','No double counting')}</h2></div>
+  <div class="kpis two">${kp(_('סך ההוצאות שנרשמו בתקופה','All expenses recorded in the period'),expT,`${exps.length} ${_('הוצאות – כל אחת נספרת פעם אחת','expenses – each counted once')}`)}${kp(_('מזה: מהקרן ושולמו במזומן מקופת רטורנו','Of it: from the fund, paid in cash from the Retorno box'),r2(both.reduce((t,x)=>t+x.amount,0)),`${both.length} ${_('הוצאות','expenses')}`)}</div>
+  <p class="hint">${_('הוצאה של מטופל או של הקרן ששולמה במזומן מקופת רטורנו מופיעה בשני הספרים – כהוצאה בצד של מי שהיא על חשבונו, וכיציאת מזומן מהקופה. זו אותה הוצאה, ובסיכום למעלה היא נספרת רק פעם אחת.','An expense of a patient or of the fund paid in cash from the Retorno box shows in both books – as an expense of whoever bears it, and as cash leaving the box. It is the same expense, and the total above counts it only once.')}</p></section>`;
 }
 /* ---------- Retorno's physical cash box: what came in, what went out, what should be in the drawer ---------- */
 function boxLedger(){
@@ -1493,14 +1564,14 @@ function expenseFlow(pre){
   if(!need(a>0&&st.desc,_('הזינו סכום ופירוט','Enter amount and details')))return'stay';
   const rows=st.rows.filter(r=>r.to||+r.amount);
   if(!need(rows.length&&rows.every(r=>r.to&&+r.amount>0),_('בכל שורה צריך לבחור על חשבון מי ולהזין סכום','Each line needs who bears it and an amount')))return'stay';
-  const keys=rows.map(r=>r.to+'|'+(r.to.startsWith('patient:')?(r.from||defFrom()):''));if(!need(new Set(keys).size===keys.length,_('אותו גורם מופיע פעמיים עם אותו אמצעי תשלום. אחדו את השורות.','The same party appears twice with the same payment type. Merge the lines.')))return'stay';
+  const keys=rows.map(r=>r.to+'|'+(ownFrom(r,st.method)?(r.from||defFrom()):''));if(!need(new Set(keys).size===keys.length,_('אותו גורם מופיע פעמיים עם אותו אמצעי תשלום. אחדו את השורות.','The same party appears twice with the same payment type. Merge the lines.')))return'stay';
   const sum=r2(rows.reduce((s,r)=>s+(+r.amount),0));
   if(!need(Math.abs(sum-a)<.005,`${_('סכום החלקים','Parts total')} ${money(sum)} ${_('לא שווה לסכום ההוצאה','does not equal the expense')} ${money(a)}`))return'stay';
   preview({...st,rows});return'stay';
  },_('המשך לאישור','Continue to review'));
  const rowsEl=$('#xrows');
  const defFrom=()=>medium(st.method)==='cash'?'cash':'bank';
- const draw=()=>{rowsEl.innerHTML=st.rows.map((r,i)=>{const isP=(r.to||'').startsWith('patient:');if(isP&&!r.from)r.from=defFrom();return`<div class="xrow ${isP?'withfrom':''}"><select data-i="${i}" class="xto" aria-label="${_('על חשבון','Charged to')}">${poolOpts.map(([k,l])=>`<option value="${k}" ${k===r.to?'selected':''}>${esc(l)}</option>`).join('')}</select><input data-i="${i}" class="xam" type="number" inputmode="decimal" step="0.01" placeholder="₪" value="${r.amount}" aria-label="${_('סכום','Amount')}"><button type="button" class="icon-btn" data-rm="${i}" aria-label="${_('הסרה','Remove')}">×</button>${isP?`<div class="seg2 xfb" role="radiogroup" aria-label="${_('יורד מ','Comes off')}"><input type="radio" name="xf${i}" id="xf${i}c" data-i="${i}" value="cash" ${r.from==='cash'?'checked':''}><label for="xf${i}c">${_('מזומן של המטופל','Patient’s cash')}</label><input type="radio" name="xf${i}" id="xf${i}x" data-i="${i}" value="box" ${r.from==='box'?'checked':''}><label for="xf${i}x">${_('מקופת רטורנו','From Retorno box')}</label><input type="radio" name="xf${i}" id="xf${i}b" data-i="${i}" value="bank" ${r.from==='bank'?'checked':''}><label for="xf${i}b">${_('אשראי','Credit')}</label></div>`:''}</div>`}).join('');sumLine()};
+ const draw=()=>{rowsEl.innerHTML=st.rows.map((r,i)=>{const isF=r.to==='program'&&medium(st.method)==='cash';const isP=(r.to||'').startsWith('patient:')||isF;if(isF&&r.from!=='box'&&r.from!=='cash')r.from='box';else if(isP&&!r.from)r.from=defFrom();return`<div class="xrow ${isP?'withfrom':''}"><select data-i="${i}" class="xto" aria-label="${_('על חשבון','Charged to')}">${poolOpts.map(([k,l])=>`<option value="${k}" ${k===r.to?'selected':''}>${esc(l)}</option>`).join('')}</select><input data-i="${i}" class="xam" type="number" inputmode="decimal" step="0.01" placeholder="₪" value="${r.amount}" aria-label="${_('סכום','Amount')}"><button type="button" class="icon-btn" data-rm="${i}" aria-label="${_('הסרה','Remove')}">×</button>${isP?`<div class="seg2 xfb" role="radiogroup" aria-label="${_('יורד מ','Comes off')}"><input type="radio" name="xf${i}" id="xf${i}c" data-i="${i}" value="cash" ${r.from==='cash'?'checked':''}><label for="xf${i}c">${isF?_('מזומן של הקרן','Fund’s own cash'):_('מזומן של המטופל','Patient’s cash')}</label><input type="radio" name="xf${i}" id="xf${i}x" data-i="${i}" value="box" ${r.from==='box'?'checked':''}><label for="xf${i}x">${_('מקופת רטורנו','From Retorno box')}</label>${isF?'':`<input type="radio" name="xf${i}" id="xf${i}b" data-i="${i}" value="bank" ${r.from==='bank'?'checked':''}><label for="xf${i}b">${_('אשראי','Credit')}</label>`}</div>`:''}</div>`}).join('');sumLine()};
  const sumLine=()=>{readForm();const a=+st.amount||0;const s=r2(st.rows.reduce((t,r)=>t+(+r.amount||0),0));const ok=a>0&&Math.abs(s-a)<.005;const el=$('#xsum');el.className='okline '+(ok?'ok':'bad');el.textContent=`${_('חולק','Split')}: ${money(s)} ${_('מתוך','of')} ${money(a)}${ok?' ✓':` · ${_('נותר','remaining')} ${money(a-s)}`}`};
  function readForm(){st.cat=val('xc');st.receipt=!!($('#xr')&&$('#xr').checked);st.amount=val('xa');st.date=val('xd')||TD;st.desc=val('xs');st.method=val('xm');st.pats=[...document.querySelectorAll('.xp:checked')].map(i=>i.value);
   document.querySelectorAll('.xto').forEach(s=>{st.rows[+s.dataset.i].to=s.value});document.querySelectorAll('.xam').forEach(s=>{st.rows[+s.dataset.i].amount=s.value});document.querySelectorAll('.xfb input:checked').forEach(r=>{st.rows[+r.dataset.i].from=r.value})}
@@ -1517,12 +1588,13 @@ function expenseFlow(pre){
   st.rows=rows.map(x=>({to:x.to,amount:String(x.amount)}));draw();toast(_('הוצעה חלוקה לפי הכלל – בדקו לפני המשך','Split suggested by the rule – check it before continuing'))});
  draw();
 }
+const ownFrom=(r,method)=>r.to.startsWith('patient:')||(r.to==='program'&&medium(method)==='cash');
 function preview(st){
  const a=+st.amount, m=medium(st.method);const ps=poolStats();
  // which money actually leaves: each patient line uses its own cash / credit choice, the rest follows how it was paid
- let cashD=0,bankD=0,boxD=0;st.rows.forEach(r=>{const md=r.to.startsWith('patient:')?(r.from||'cash'):m;if(md==='box'){cashD+=+r.amount;boxD+=+r.amount}else if(md==='cash'){cashD+=+r.amount;if(r.to==='retorno')boxD+=+r.amount}else if(md==='bank')bankD+=+r.amount});cashD=r2(cashD);bankD=r2(bankD);boxD=r2(boxD);
+ let cashD=0,bankD=0,boxD=0;st.rows.forEach(r=>{const md=ownFrom(r,st.method)?(r.from||'cash'):m;if(md==='box'){cashD+=+r.amount;boxD+=+r.amount}else if(md==='cash'){cashD+=+r.amount;if(r.to==='retorno')boxD+=+r.amount}else if(md==='bank')bankD+=+r.amount});cashD=r2(cashD);bankD=r2(bankD);boxD=r2(boxD);
  const dup=D.tx.find(x=>x.id!==st.approveId&&x.kind==='exp'&&x.date===st.date&&Math.abs(x.amount-a)<.005&&nm(x.desc).trim().toLowerCase()===st.desc.toLowerCase());
- const run={};const rows=st.rows.map(r=>{const o=pool(r.to);const before=r2(run[r.to]??o.t);const after=r2(before-(+r.amount));run[r.to]=after;const isP=r.to.startsWith('patient:');const bk=isP?(r.from||'cash'):'';return`<tr><td>${esc(poolName(r.to))}${isP?` <span class="chip">${bk==='cash'?_('ממזומן של המטופל','from patient cash'):bk==='box'?_('מזומן מקופת רטורנו','cash from Retorno box'):_('מאשראי','from credit')}</span>`:''}</td><td class="n">${money(before)}</td><td class="n neg">−${money(+r.amount)}</td><td class="n"><b>${money(after)}</b></td></tr>`}).join('');
+ const run={};const rows=st.rows.map(r=>{const o=pool(r.to);const before=r2(run[r.to]??o.t);const after=r2(before-(+r.amount));run[r.to]=after;const isP=ownFrom(r,st.method);const bk=isP?(r.from||'cash'):'';return`<tr><td>${esc(poolName(r.to))}${isP?` <span class="chip">${bk==='cash'?(r.to==='program'?_('ממזומן של הקרן','from the fund’s cash'):_('ממזומן של המטופל','from patient cash')):bk==='box'?_('מזומן מקופת רטורנו','cash from Retorno box'):_('מאשראי','from credit')}</span>`:''}</td><td class="n">${money(before)}</td><td class="n neg">−${money(+r.amount)}</td><td class="n"><b>${money(after)}</b></td></tr>`}).join('');
  modal(_('אישור לפני שמירה','Confirm before saving'),`<div class="form"><p><b dir="auto">${esc(st.desc)}</b> · ${money(a)} · ${methodLbl(st.method)} · ${fmtDate(st.date)}</p>
   <div class="tw"><table><thead><tr><th>${_('על חשבון','Charged to')}</th><th class="n">${_('לפני','Before')}</th><th class="n">${_('חיוב','Charge')}</th><th class="n">${_('אחרי','After')}</th></tr></thead><tbody>${rows}
   ${boxD?`<tr class="trh"><td><b>${_('קופת המזומן של רטורנו','Retorno cash box')}</b></td><td class="n">${money(boxCash())}</td><td class="n neg">−${money(boxD)}</td><td class="n"><b>${money(boxCash()-boxD)}</b></td></tr>`:''}
@@ -1531,7 +1603,7 @@ function preview(st){
   ${m==='other'?`<p class="hint">${st.approveId?_('איש הצוות שילם מכיסו. עם האישור נרשם לו החזר שאושר.','The staff member paid out of pocket. Approving records an approved refund for them.'):_('המזומן בקופה לא משתנה. תיפתח בקשת החזר לאיש הצוות.','Cash in hand does not change. A refund request opens for the staff member.')}</p>`:''}
   ${dup?`<div class="banner warnb"><div><b>${_('ייתכן שזו כפילות','Possible duplicate')}:</b> ${_('כבר נרשמה הוצאה זהה באותו תאריך.','an identical expense was already recorded on this date.')}<label class="toggle" style="margin-top:6px"><input type="checkbox" id="dupok">${_('זו הוצאה נפרדת – לרשום בכל זאת','This is a separate expense – record it anyway')}</label></div></div>`:''}</div>`,
   ()=>{if(dup&&!$('#dupok').checked&&!st.approveId){toast(_('סמנו שזו הוצאה נפרדת, או חזרו','Confirm it is a separate expense, or go back'));return'stay'}
-   const t=txExp(st.date,st.method,a,st.desc,st.rows.map(r=>({to:r.to,amount:+r.amount,m:r.to.startsWith('patient:')?(r.from||'cash'):null})),{cat:st.cat||'other',receipt:st.receipt!==false});
+   const t=txExp(st.date,st.method,a,st.desc,st.rows.map(r=>({to:r.to,amount:+r.amount,m:ownFrom(r,st.method)?(r.from||'cash'):null})),{cat:st.cat||'other',receipt:st.receipt!==false});
    if(st.items){t.items=st.items;t.report=true;t.forPids=st.forPids||[];if(st.note)t.note=st.note}
    if(st.method.startsWith('staff:')&&!(st.approveId&&D.tx.find(z=>z.id===st.approveId)?.reqId)){const rq={id:uid(),staff:st.method.slice(6),kind:'reimb',date:st.date,desc:st.desc,amount:a,status:st.approveId&&S.role==='manager'?'approved':'pending',txId:t.id};D.requests.push(rq);t.reqId=rq.id}
    if(st.approveId){const o=D.tx.find(z=>z.id===st.approveId);t.id=o.id;t.by=o.by;t.status='approved';t.approvedBy=me();if(o.reqId&&!t.reqId){t.reqId=o.reqId}D.tx[D.tx.indexOf(o)]=t;return _('סווג ואושר','Classified and approved')}
@@ -1711,7 +1783,7 @@ const A={
   fill();$('#gp').onchange=()=>{$('#gc').dataset.touched='';$('#gx').dataset.touched='';fill()};$('#ga').oninput=fill;
   $('#gc').oninput=()=>{$('#gc').dataset.touched=1;const a=+val('ga')||0;if(!$('#gx').dataset.touched)$('#gx').value=r2(Math.max(0,a-(+val('gc')||0)))};
   $('#gx').oninput=()=>{$('#gx').dataset.touched=1;const a=+val('ga')||0;if(!$('#gc').dataset.touched)$('#gc').value=r2(Math.max(0,a-(+val('gx')||0)))};return'keep'},
- inRetorno:()=>{modal(_('קבלת מזומן מרטורנו','Cash received from Retorno'),`<div class="form">${num('ya','₪')}${txt('yd',_('פירוט','Details'),_('מזומן מרטורנו','Cash from Retorno'))}<p class="hint">${_('מתווסף למזומן בקופה ולכספי רטורנו.','Adds to cash in hand and to Retorno funds.')}</p></div>`,
+ inRetorno:()=>{if(A.boxNew)return A.boxNew();modal(_('קבלת מזומן מרטורנו','Cash received from Retorno'),`<div class="form">${num('ya','₪')}${txt('yd',_('פירוט','Details'),_('מזומן מרטורנו','Cash from Retorno'))}<p class="hint">${_('מתווסף למזומן בקופה ולכספי רטורנו.','Adds to cash in hand and to Retorno funds.')}</p></div>`,
   ()=>{const a=+val('ya');if(!need(a>0,_('הזינו סכום','Enter an amount')))return'stay';D.tx.push(stampTx(txIn(TD,'retorno','cash',r2(a),val('yd'))));return S.role==='manager'?_('נרשם','Recorded'):_('נשלח לאישור מנהל','Sent for manager approval')});return'keep'},
  inPatient:v=>{modal(_('מזומן ממטופל או ממשפחה','Cash from patient or family'),`<div class="form">${sel('yp',_('מטופל','Patient'),patOpts(),v||'')}${num('ya','₪')}${txt('yd',_('פירוט','Details'),_('מזומן מהמשפחה','Cash from family'))}<p class="hint">${_('מתווסף למזומן בקופה וליתרה של המטופל.','Adds to cash in hand and to the patient’s balance.')}</p></div>`,
   ()=>{const a=+val('ya');if(!need(a>0,_('הזינו סכום','Enter an amount')))return'stay';D.tx.push(stampTx(txIn(TD,PK(val('yp')),'cash',r2(a),val('yd'))));return S.role==='manager'?_('נרשם','Recorded'):_('נשלח לאישור מנהל','Sent for manager approval')});return'keep'},
@@ -2016,6 +2088,40 @@ const A={
    const now=new Date().toISOString();s.history=[...(s.history||[]),{general:old.general,parts:old.parts.map(x=>({pid:x.pid,text:x.text})),until:now}].slice(-10);s.editedAt=now;s.editedBy=me();save();toast(_('השינויים נשמרו','Changes saved'))}
   else toast(_('לא היו שינויים','Nothing changed'));
   S.sumEdit=null;S.sumSnap=null},
+ fundIn:()=>{const ps=activeP().concat(D.patients.filter(p=>p.archived)).filter(p=>pool(PK(p.id)).t>.004);
+  modal(_('הכנסה לקרן התוכנית','Money into the program fund'),`<div class="form">${sel('fs',_('מאיפה הכסף','Where the money comes from'),[['left',_('יתרה מקופה אישית של מטופל שהוחלט לא להחזיר','A patient’s personal balance that will not be returned')],['pay',_('תשלום של מטופל / משפחה לתוכנית','A patient / family payment to the program')],['other',_('כסף אחר לשימוש התוכנית','Other money for program use')]],'left')}
+   <div id="fsl">${sel('fp',_('מטופל','Patient'),ps.map(p=>[p.id,`${p.name} · ${money(pool(PK(p.id)).t)}`]),ps[0]?ps[0].id:'')}</div>
+   <div id="fsm" hidden>${sel('fm',_('איך התקבל','How it came in'),[['cash',_('מזומן','Cash')],['bank',_('העברה / אשראי','Transfer / credit')]],'cash')}</div>
+   <div class="fr">${num('fa','₪',ps[0]?r2(pool(PK(ps[0].id)).t):'')}${fld('fd',_('תאריך','Date'),`<input id="fd" type="date" value="${TD}">`)}</div>${txt('fx',_('פירוט','Details'),'')}</div>`,
+   ()=>{const src=val('fs'),a=r2(+val('fa')),d=val('fd')||TD;if(!need(a>0,_('הזינו סכום','Enter an amount')))return'stay';
+    if(src==='left'){const p=pat(val('fp'));if(!need(p,_('בחרו מטופל','Pick a patient')))return'stay';if(!need(a<=r2(pool(PK(p.id)).t)+.005,_('הסכום גדול מהיתרה של המטופל','The amount is more than the patient’s balance')))return'stay';
+     D.tx.push(stampTx(txMoveBetween(d,PK(p.id),'program',a,val('fx')||_('יתרה לקרן התוכנית','Balance to program fund'),'transfer')))}
+    else D.tx.push(stampTx(txIn(d,'program',val('fm'),a,val('fx')||(src==='pay'?_('תשלום לתוכנית','Payment to the program'):_('הכנסה לקרן','Money into the fund')))));
+    return _('נרשם בקרן התוכנית','Recorded in the program fund')});
+  const sync=()=>{const l=val('fs')==='left';$('#fsl').hidden=!l;$('#fsm').hidden=l};$('#fs').onchange=sync;
+  $('#fp')&&($('#fp').onchange=()=>{const p=pat(val('fp'));if(p)$('#fa').value=r2(pool(PK(p.id)).t)});return'keep'},
+ fundRepay:()=>{const owe=r2(-pool('program').bank),can=r2(Math.min(owe,pool('program').cash));if(!(can>.004))return'keep';
+  modal(_('החזרה מהקרן לקופת רטורנו','Fund pays the Retorno box back'),`<div class="form">${num('ra','₪',can)}<p class="hint">${_('המזומן עובר מהמזומן של הקרן לקופת רטורנו. יתרת הקרן לא משתנה – ההוצאות כבר נרשמו.','The cash moves from the fund’s cash into the Retorno box. The fund balance does not change – the expenses are already recorded.')}</p></div>`,
+   ()=>{const a=r2(+val('ra'));if(!need(a>0&&a<=can+.005,_('סכום לא תקין','Invalid amount')))return'stay';
+    D.tx.push(stampTx({id:uid(),date:TD,kind:'transfer',method:'none',amount:a,desc:_('החזרה מהקרן לקופת רטורנו','Fund paid the Retorno box back'),moves:[{p:'program',d:-a,m:'cash'},{p:'retorno',d:a,m:'cash',box:1},{p:'retorno',d:-a,m:'bank',box:1},{p:'program',d:a,m:'bank'}]}));return _('הוחזר לקופה','Paid back to the box')});return'keep'},
+ fundExp:()=>{expenseFlow({date:TD,method:'cash',amount:'',desc:'',rows:[{to:'program',amount:'',from:'box'}],pats:[],cat:'other',receipt:true});return'keep'},
+ boxNew:()=>{const left=boxCash();
+  modal(_('קבלת קופת מזומן מרטורנו','Cash box from Retorno'),`<div class="form"><div class="fr">${num('ba','₪',1500)}${fld('bd',_('תאריך','Date'),`<input id="bd" type="date" value="${TD}">`)}</div>${txt('bx',_('פירוט','Details'),_('קופת מזומן מרטורנו','Cash box from Retorno'))}
+   ${left>.004?`<label class="toggle"><input type="checkbox" id="bclose">${_('הקופה הקודמת נסגרה – היתרה שנשארה בה','The previous box is closed – what was left in it')} (${money(left)}) ${_('הוחזרה לרטורנו','went back to Retorno')}</label>`:''}
+   <p class="hint">${_('התנועות של הקופה הקודמת נשמרות בדוח.','The earlier box’s movements stay in the report.')}</p></div>`,
+   ()=>{const a=r2(+val('ba')),d=val('bd')||TD;if(!need(a>0,_('הזינו סכום','Enter an amount')))return'stay';
+    if($('#bclose')&&$('#bclose').checked)D.tx.push(stampTx({id:uid(),date:d,kind:'boxReturn',method:'cash',amount:left,desc:_('סגירת קופה – היתרה הוחזרה לרטורנו','Box closed – what was left went back to Retorno'),moves:[{p:'retorno',d:-left,m:'cash'}]}));
+    const t=txIn(d,'retorno','cash',a,val('bx'));t.boxStart=true;D.tx.push(stampTx(t));
+    return S.role==='manager'?_('הקופה נרשמה','Box recorded'):_('נשלח לאישור מנהל','Sent for manager approval')});return'keep'},
+ fundsCsv:()=>{const P=periodOf(),inP=d=>d>=P.a&&d<=P.b;const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const out=[[_('ספר','Book'),_('תאריך','Date'),_('סוג','Type'),_('פירוט','Details'),_('נכנס','In'),_('יצא','Out'),_('יתרה','Balance')].map(q).join(',')];
+  fundLedger().filter(r=>inP(r.x.date)).forEach(r=>out.push([_('קרן התוכנית','Program fund'),r.x.date,kindLbl(r.x),nm(r.x.desc),r.d>0?r.d:'',r.d<0?-r.d:'',r.bal].map(q).join(',')));
+  boxLedger().filter(r=>inP(r.x.date)).forEach(r=>out.push([_('קופת רטורנו','Retorno box'),r.x.date,r.x.boxStart?_('קופה חדשה מרטורנו','New box from Retorno'):kindLbl(r.x),nm(r.x.desc),r.d>0?r.d:'',r.d<0?-r.d:'',r.bal].map(q).join(',')));
+  const blob=new Blob(['\ufeff'+out.join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`retorno-fund-box-${String(P.lbl).replace(/\s+/g,'-')}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);return'keep'},
+ permAdd:v=>{const p=pat(v);if(S.role!=='manager'||!p)return'keep';permForm(p);return'keep'},
+ permEdit:v=>{const[a,b]=v.split('|');const p=pat(a);const x=p&&(p.perms||[]).find(y=>y.id===b);if(S.role!=='manager'||!x)return'keep';permForm(p,x);return'keep'},
+ permDel:v=>{const[a,b]=v.split('|');const p=pat(a);if(S.role!=='manager'||!p)return'keep';const x=(p.perms||[]).find(y=>y.id===b);if(!x)return'keep';
+  modal(_('מחיקת אישור','Delete permission'),`<div class="form"><p><b>${esc(p.name)}</b></p><p dir="auto">${esc(x.text)}</p></div>`,()=>{p.perms=p.perms.filter(y=>y.id!==b);return _('נמחק','Deleted')},_('מחיקה','Delete'));return'keep'},
  voices:()=>{if(window.RETORNO_VOICES)window.RETORNO_VOICES();return'keep'},
  noteEdit:v=>{const n=D.notes.find(x=>x.id===v);if(!canEditOwn(n))return'keep';
   modal(`${_('עריכה','Edit')} · ${n.kind==='therapy'?_('סיכום טיפולי','Therapy summary'):_('תיעוד יומי','Daily note')} · ${pat(n.pid)?.name||''}`,`<div class="form"><p class="hint">${fmtDate(n.date)} ${n.time||''} · ${_('השינויים יופיעו לצוות עם סימון "נערך". הנוסח הקודם נשמר.','Changes show for the team marked "Edited". The earlier version is kept.')}</p>
@@ -2072,7 +2178,7 @@ function readReview(s){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b||!b.isConnected)return;const f=A[b.dataset.a];if(!f)return;e.preventDefault();const r=f(b.dataset.v,b);if(r&&typeof r.then==='function'){r.then(v=>{if(v!=='keep')render()},()=>{})}else if(r!=='keep')render()});
 document.addEventListener('change',e=>{const t=e.target;const c=t.dataset&&t.dataset.c;
- if(c==='role'){if(SH.on)S.viewAs=t.value==='manager'?null:t.value;else S.role=t.value;S.mine=null;S.pid=null;S.sumId=null;render()}else if(c==='mine'){S.mine=t.checked;render()}else if(c==='boxMonth'){S.boxMonth=t.value;render()}
+ if(c==='role'){if(SH.on)S.viewAs=t.value==='manager'?null:t.value;else S.role=t.value;S.mine=null;S.pid=null;S.sumId=null;render()}else if(c==='mine'){S.mine=t.checked;render()}else if(c==='boxMonth'){S.boxMonth=t.value;render()}else if(c==='fper'){S.fper=t.value;render()}else if(c==='fyear'){S.fyear=t.value;render()}
   else if(c==='lmst'){const l=(D.lm||[]).find(x=>x.id===t.dataset.v);if(l){l.st=t.value;if(!l.owner)l.owner=me();(l.log||(l.log=[])).push({at:new Date().toISOString(),by:me(),text:`${_('סטטוס','status')}: ${lmSt(t.value)[S.lang]}`});save();render()}}
   else if(c==='lmq'){S.lmq=t.value;render()}
   else if(c==='lmacc'){const a=new Set(D.leadAccess||[]);if(t.checked)a.add(t.value);else a.delete(t.value);D.leadAccess=[...a];save();toast(_('ההרשאה עודכנה','Access updated'))}
